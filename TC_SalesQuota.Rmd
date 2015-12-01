@@ -1,0 +1,299 @@
+```{r global_options, echo=FALSE}
+knitr::opts_chunk$set(warning=FALSE, message=FALSE, echo=FALSE, fig.height=4, fig.width=6)
+```
+
+```{r load_libraries}
+library(knitr)
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(lattice)
+```
+
+---
+title: "Investigation of fairness in sales quota setting"
+author: "Julian Hatwell"
+date: `r format(Sys.time(), "%b %Y") `
+output: html_document
+---
+
+## Introduction
+
+This report looks at the available data for annual sales for one sales department and seeks to gain assurance that quotas have been set fairly for all members of the sales department. The company, department and individuals remain anonymous.
+
+The data available is very limited and there are many questions that cannot be answered. This report seeks to determine what can be known based only on the data, and what (if any) unanswered questions remain and what further information would be needed to answer them.
+
+The data is a census (complete for the population) and so inferential statistics are not required. Means and variances can be discussed and considered as is without the need for standard errors and confidence intervals with which the reader might be accustomed.
+
+Linear models are used to search for and quantify any differences between two identified groups within this population.
+
+## Executive Summary
+
+TO DO
+
+## Data Sample and Exploratory Data Analysis
+
+The data consists of a csv file with 422 rows and 4 columns. The rows represent individual sales agents in the department. The columns are as follows:
+
+1. Group (A or B) - Denotes the sales department sub-group. Each group sells the same produce but has a different client profile and different quotas sales quotas.
+2. Sales - The overall sales to date for the year 2015. Units not given.
+3. Quota - The overall sales to date for the year 2015. Units not given, but extremely likel to be same units as sales.
+4. Attainment - ratio of Sales/Quota expressed as a percentage.
+
+For the purpose of convenience, the following columns have been added:
+
+5. id - A numberic sequence starting from 1 to identify each unique row.
+6. KSales - Sales/1000
+7. KQuota - Quota/1000
+8. Target - (Sales-Quota)/Quota centre on 100%, the values is now percentage points above or below target.
+
+The following listing shows the top 6 rows of the data file followed by a standard summary.
+
+```{r load_data}
+# original link
+#link <- "https://raw.githubusercontent.com/tantanchen/Quota-Bias/master/Sales%20and%20quota%20by%20group.csv"
+# local file
+link <- "C:\\Dev\\Study\\R\\Tanc_investigation\\TC_SalesQuota.csv"
+raw.data <- read_csv(link)
+attach(raw.data)
+raw.data$Group <- as.factor(Group)
+raw.data$id <- seq_along(Sales)
+raw.data$KSales <- Sales/1000
+raw.data$KQuota <- Quota/1000
+raw.data$Target <- (Sales-Quota)/Quota*100
+
+attach(raw.data)
+head(raw.data)
+summary(select(raw.data, -c(Sales,Quota)))
+```
+
+The means and St. Devs of the population and separately for groups A and B are presented here for reference:
+
+```{r means_stdevs_sales_quota}
+# means
+# pop
+mn_Quo_P <- mean(KQuota)
+mn_Sal_P <- mean(KSales)
+mn_Tar_P <- mean(Target)
+kable(data.frame(
+  Population_mean_KQuota = mn_Quo_P
+  , Population_mean_KSales = mn_Sal_P
+  , Population_mean_Target = mn_Tar_P
+))
+
+# Grp A
+mn_Quo_A <- mean(KQuota[Group == "A"])
+mn_Sal_A <- mean(KSales[Group == "A"])
+mn_Tar_A <- mean(Target[Group == "A"])
+kable(data.frame(
+  GroupA_mean_KQuota = mn_Quo_A
+  , GroupA_mean_KSales = mn_Sal_A
+  , GroupA_mean_Target = mn_Tar_A
+))
+
+# Grp B
+mn_Quo_B <- mean(KQuota[Group == "B"])
+mn_Sal_B <- mean(KSales[Group == "B"])
+mn_Tar_B <- mean(Target[Group == "B"])
+kable(data.frame(
+  GroupB_mean_KQuota = mn_Quo_B
+  , GroupB_mean_KSales = mn_Sal_B
+  , GroupB_mean_Target = mn_Tar_B
+))
+
+# St Devs
+# Pop
+sd_Quo_P <- sd(KQuota)
+sd_Sal_P <- sd(KSales)
+sd_Tar_P <- sd(Target)
+kable(data.frame(
+      Population_StDev_KQuota = sd_Quo_P
+      , Population_StDev_KSales = sd_Sal_P
+      , Population_StDev_Target = sd_Tar_P
+))
+
+# Grp A
+sd_Quo_A <- sd(KQuota[Group == "A"])
+sd_Sal_A <- sd(KSales[Group == "A"])
+sd_Tar_A <- sd(Target[Group == "A"])
+kable(data.frame(
+      GroupA_StDev_KQuota = sd_Quo_A
+      , GroupA_StDev_KSales = sd_Sal_A
+      , GroupA_StDev_Target = sd_Tar_A
+))
+
+# Grp B
+sd_Quo_B <- sd(KQuota[Group == "B"])
+sd_Sal_B <- sd(KSales[Group == "B"])
+sd_Tar_B <- sd(Target[Group == "B"])
+kable(data.frame(
+      GroupB_StDev_KQuota = sd_Quo_B
+      , GroupB_StDev_KSales = sd_Sal_B
+      , GroupB_StDev_Target = sd_Tar_B
+))
+```
+
+In general, group B has a much smaller size and much smaller variance in the sales and quota, yet and a much wider variance in the attainment variable. Attainment in group B is less easy to predict, given either sales or quota. This will be investigated further to determine if there are any patterns.
+
+
+The following figure demonstrates a clear trend between sales and quota which appears to be irrespective of group. The segregation between groups appears to follow a simple pattern, namely; Group B have lower quotas and lower sales in absolute terms. This information was not explicit in the information given about the data set, but seems to corroborate that these groups have different customer profiles. Group B appear to have the "tougher" sell and consequently sytematically lower quotas.
+
+```{r Exploratory_Graph_Sales_depends_Quota}
+# smooth line shows the strong trend between quota and sales
+q <- qplot(data = raw.data
+      , x = Quota, y = Sales
+      , colour = Group, geom="point"
+      , alpha = I(0.8))
+q + ggtitle("Sales by Quota by Group") + theme_bw()
+```
+
+The following figure demonstrates how Sales tracks quota on an almost 1:1 ratio. The Refline is intercept = 0, slope = 1. From this initial investigation, quota setting appears to be both fair and a good predictor of period end sales.
+
+```{r Exploratory_Graph_Sales_depends_Quota_Identity_Refline}
+# identity line show that sales matches quota one to one.
+xyplot((KQuota)~(KSales) | Group, raw.data
+       , panel = function(x,y) {
+         panel.xyplot(x,y)
+         panel.refline(0, 1, col = "Black")
+       }
+       , main = "Sales by Quota by Group \nwith identity line")
+```
+
+
+## Going Deeper:
+### The Attainment Variable
+
+The attainment variable is simply the ratio of Sales/Quota and represents the performance of individual sales agents. It is equivalent to fitting linear model where Yi = b0 + b1Xi where Y is Sales, X is Quota and b0 = 0 and b1 = 1. The attainment is equivalent to the residuals of the model Sales ~ Quota.
+
+Or more precisely
+
+Sales = b0 + b1 * Quota + e
+
+Here, b0 is zero for the whole population but maybe slightly different in the two groups.
+
+Assuming a in intercept of 0 we can say that
+
+Sales/Quota = b1 + e = Attainment
+
+So the task at hand is to try to separate the b1 part from the e. Given this is a population/census, e can be said to represent the individual sales agent's response to any variables that don't exist in the given dataset (that haven't been measured) or simply each individuals difference from the performance predicted by the original quota model.
+
+TO DO: MATHS EXPRESSIONS
+
+The following figure shows that the attainmen for group A is relatively constant, no matter what the Quota, while for Group B the picture is not so clear. In the shadow of much higher variance, there are some signs of a different trend; Those with lower quotas may be finding it easier to meet and exceed the attainment while those with higher quotas struggle. This pattern is less clear and the regression line may be heavily influenced by a small number of significant outliers.
+
+This investigation continues by attempting to find any patterns in those outliers despite the obviously limited data available.
+
+```{r Exploratory_Graph_Attainment_Quota}
+q <- qplot(data = raw.data[-389,], x = Quota, y = Target
+      , colour = Group, geom=c("point", "smooth"), method = "lm", se = FALSE)
+q + ggtitle("Attainment by Quota by Group with lm fit") + theme_bw()
+```
+
+The regression line for group B notably passing through the point with the highest quota. This is potentially a high leverage point and needs further investigation.
+
+The following figure shows a histogram of the Attainment in each group. There is a noticeable skew to the Group B distribution.
+
+```{r Histogram_Attainment}
+# These groups have the same average attainment 
+# but do they have the same distributions?
+histogram(~Target | Group, layout = c(1, 2), breaks = 20
+          , main = "Histogram of group A and B attainment for comparison")
+```
+
+Given the obvious skew in the Group B data, the t-test results are questionable and further analysis is required
+
+The following figure shows a Quantile-Quantile plot, reflecting the above mentioned skew.
+
+```{r QQ_Group_Attainment}
+# quantiles plot against T disp df = sample size -1.
+qq(Group~Target
+   , type=c("p", "g")
+   , main = "Q-Q Attainment Grp A vs B"
+   , aspect = "xy"
+)
+```
+
+Group B appear to be over represented in the lower attainment group. There must be correspondingly a small set of high performers who pull up the group average to resemble Group A's mean.
+
+## Linear Models
+There are not many variables to choose from. 
+
+### 1. How does the quota affect sales
+Based on the assumptions that quotas are set to drive sales, the first model looks predicted attainment, the coefficent of Sales ~ Quota for the two groups. The data is centred for each group with X - mu
+
+```{r lm_Sales_depends_Quota_and_Group}
+# centering each group in its attainment mean
+raw.data$Sales_C <- KSales - ifelse(Group == "A", mn_Sal_A, mn_Sal_B)
+raw.data$Quota_C <- KQuota - ifelse(Group == "A", mn_Quo_A, mn_Quo_B)
+raw.data$Target_C <- Target - ifelse(Group == "A", mn_Tar_A, mn_Tar_B)
+
+attach(raw.data)
+
+lm1 <- lm(Sales_C ~ Group * Quota_C -1)
+summary(lm1)
+plot(lm1, which = 4)
+```
+
+We see, unsurprisingly a slope coefficient for Group A of 0.99538, almost exactly an identity line as we've seen in the EDA.
+
+Group B rises at a very slightly lower rate, 0.995 - 0.093 = 0.902
+
+This can be interpreted as Group A sells 995.4 units for every 1000 units of quota. Group B sells 902.2 units for every 1000 units of quota.
+
+The next plot is the residuals 
+
+```{r Resid_Diagnostics_lm1}
+# rough
+raw.data$lm1_res_dgn <- as.numeric(names(sort(resid(lm1), decreasing = TRUE)))
+
+raw.data$lm1_hat_dgn <- as.numeric(names(sort(hatvalues(lm1), decreasing = TRUE)))
+
+raw.data$lm1_cks_dgn <- as.numeric(names(sort(cooks.distance(lm1), decreasing = TRUE)))
+
+attach(raw.data)
+
+stripplot(~lm1_cks_dgn
+          , group = Group
+          , jitter = TRUE
+          , aspect = 0.1)
+```
+```{r}
+xyplot(cooks.distance(lm1)~resid(lm1), group = Group
+        , jitter = 0.2
+        , aspect = 0.6)
+```
+
+The second model looks at the effect of Group on Attainment
+
+```{r lm_Attainment_depends_Group}
+lm2 <- lm((Target_C) ~ Group * Quota_C -1)
+summary(lm2)
+
+raw.data$lm2_res_dgn <- as.numeric(names(sort(resid(lm2), decreasing = TRUE)))
+
+raw.data$lm2_hat_dgn <- as.numeric(names(sort(hatvalues(lm2), decreasing = TRUE)))
+
+raw.data$lm2_cks_dgn <- as.numeric(names(sort(cooks.distance(lm2), decreasing = TRUE)))
+
+attach(raw.data)
+
+stripplot(~lm2_hat_dgn
+          , group = Group
+          , jitter = TRUE
+          , aspect = 0.1)
+```
+```{r}
+xyplot(cooks.distance(lm2)~resid(lm2), group = Group
+        , jitter = 0.2
+        , aspect = 0.6)
+
+
+```
+
+Here, group A appear to gain 0.001% sales performance for every 1000 units of quota while group B appear to lose 0.48% sales performance for every 1000 units of quota. It's not possible to say it the extra push from a higher quota is demotivating or simply less realistic.
+
+```{r Exploratory_Graph_Attainment_Quota2}
+q <- qplot(data = raw.data[-389,], x = Quota, y = Target
+      , colour = Group, geom=c("point", "smooth"), method = "lm", se = FALSE)
+q + ggtitle("Attainment by Quota by Group with lm fit") + theme_bw()
+```
