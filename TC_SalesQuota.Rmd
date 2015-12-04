@@ -33,6 +33,7 @@ The specific question for this investigation is this: Given that the determinati
 
 TO DO
 
+## Detailed Report
 ### Data Sample and Exploratory Data Analysis
 
 The data consists of a csv file with 422 rows and 4 columns. The rows represent individual sales agents in the department. The columns are as follows:
@@ -167,7 +168,22 @@ where \(\hat{Y}_i\) is the predicted Sales value for individual given the Quota 
 
 So the task at hand is to try to determine if there are any discernable patterns to \(e\), and if the combination of Quota and Group setting could control any discovered  pattern in particular if there were a practical way to apply such influence.
 
-The following figure shows that the on target attainment for group A is relatively constant, no matter what the Quota, while for Group B the picture is not so clear. In the shadow of much higher variance, there are some signs of a different trend; Those with lower quotas may be finding it easier to meet and exceed the attainment while those with higher quotas struggle. This pattern is less clear and the regression line may be heavily influenced by a small number of significant outliers.
+#### Side note on the linear relationship; Sales depends on Quota:
+
+The simple 1:1 relationship so far discovered, is actually rather unintuitive as it is not conceivable that one could continually increase the quota and get a linear increase in sales to infinity. The reality is much more likely to be a log-linear relationship, with sales vastly outstripping lower quotas then trailing behind higher and higher quotas to a limit. Then these log-linear predictions mediated by a variable modeling easier or tougher customer groups.
+
+This intuited variable is rolled into the value of \(\beta_1\) giving an overall linear relationship.
+
+```{r expected_loglinear_increase_in_sales}
+x <- seq(5, 80, 0.5)
+y <- 9*log(x) + rnorm(length(x))
+xyplot(y~x, main = "Intuitive relationship of Sales to Quotas\n(Simulation)"
+      , xlab = "Quota (1000's)", ylab = "Sales (1000's)")
+```
+
+The following figure shows that the on target attainment for group A is relatively constant, no matter what the Quota (as we have already seen). 
+
+For Group B the picture is not so clear. In the shadow of much higher variance, there are some signs of a different trend; Those with lower quotas may be finding it easier to meet and exceed the attainment while those with higher quotas struggle. This pattern is less clear and the regression line may be heavily influenced by a small number of significant outliers.
 
 This investigation continues by attempting to find any patterns in those outliers despite the obviously limited data available.
 
