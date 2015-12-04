@@ -38,16 +38,19 @@ The data is a census (complete for the population) and so inferential statistics
 
 The data consists of a csv file with 422 rows and 4 columns. The rows represent individual sales agents in the department. The columns are as follows:
 
-1. Group (A or B) - Denotes the sales department sub-group. Each group sells the same produce but has a different client profile and different quotas sales quotas.
+1. Group (A or B) - Denotes the sales department sub-group. Each group sells the same products but has a different client profile and different quotas sales quotas.
 2. Sales - The overall sales to date for the year 2015. Units not given.
 3. Quota - The overall sales to date for the year 2015. Units not given. Assumed to be same units as sales.
-4. Attainment - ratio of Sales/Quota expressed as a percentage.
+4. Attainment - ratio of \(\frac{Sales}{Quota}\) expressed as a percentage.
 
 For the purpose of convenience, the following columns have been added:
 
-5. KSales - Sales/1000
-6. KQuota - Quota/1000
-7. OnTarget - (Sales-Quota)/Quota centre on 100%, the values is now percentage points above or below target.
+5. KSales - \(\frac{Sales}{1000}\)  
+
+6. KQuota - \(\frac{Quota}{1000}\)  
+
+7. OnTarget - \(\frac{(Sales-Quota)}{Quota}\)  
+Centres on 100%. The values is now percentage points above or below target.
 
 The following listing shows the top 6 rows of the data file followed by a standard summary.
 
@@ -69,7 +72,7 @@ head(raw.data)
 summary(select(raw.data, -c(Sales,Quota, Attainment)))
 ```
 
-The means and St. Devs of the population and separately for groups A and B are presented here for reference:
+The means and st. devs of the population and separately for groups A and B are presented here for reference:
 
 ```{r means_stdevs_sales_quota}
 # means
@@ -135,13 +138,13 @@ kable(data.frame(
 ))
 ```
 
-In general, group B has a much smaller size and much smaller variance in the sales and quota, yet and a much wider variance in the attainment variable. Attainment in group B is less easy to predict, given either sales or quota. This will be investigated further to determine if there are any patterns.
+In general, group B has a much smaller size and much smaller variance in the sales and quota, yet it has a much wider variance in the on target attainment variable. It seems that attainment in group B is less easy to predict, given either sales or quota. 
 
-The following figure demonstrates a clear trend between sales and quota which appears to be irrespective of group. As has been determined from the means, Group B have lower quotas and lower sales in absolute terms. 
+The following figure demonstrates a clear trend between sales and quota which appears to be irrespective of group. The lower values for mean quota and sales for Group B are clear.
 
-This information was not explicit in the information given with the data set, but seems to corroborate that these groups have different customer profiles. Group B appear to have the "tougher" sell and consequently sytematically lower quotas, though there are a significant number of exceptions. These exceptions are of particular interest.
+This information was not explicit in the information given with the data set, but seems to corroborate the face that these groups have different customer profiles. Group B appear to have the "tougher" sell and consequently sytematically lower quotas, though there are a significant number of exceptions.
 
-An identity reference dotted line has been added to emphasise the almost exact 1:1 relationship with between Quota and Sales for group A. Group B shows a slope coefficient very slightly below 1. This will be quantified in later in the report.
+An identity reference dotted line has been added to emphasise the almost exact 1:1 relationship with between Quota and Sales for group A. Group B shows a slope coefficient very slightly below 1. This will be quantified in later in the report with a linear model
 
 ```{r Exploratory_Graph_Sales_depends_Quota}
 # smooth line shows the strong trend between quota and sales
@@ -158,19 +161,23 @@ q
 
 ### Attainment / Target
 
-The attainment variable supplied in the data set is simply the ratio of Sales/Quota and represents the performance of individual sales agents. It is equivalent to fitting linear model Sales depends on Quota.
+The attainment variable supplied in the data set is simply the ratio of \(\frac{Sales}{Quota}\) and represents the performance of individual sales agents. It is equivalent to fitting linear model Sales depends on Quota, assuming the intercept is 0.
 
-Or more generally
+More generally
 
 \[\hat{Y}_i = \beta_0 + \beta_1X_i + e_i\]
 
-where \(\hat{Y}_i\) is the predicted Sales value for individual given the Quota \(X_i\) and \(e_i\) is the deviation from \(\hat{Y}_i\) for the individual sales person.
+where \(\hat{Y}_i\) is the predicted Sales value for individual given the Quota \(X_i\). 
 
-So the task at hand is to try to determine if there are any discernable patterns to \(e\), and if the combination of Quota and Group setting could control any discovered  pattern in particular if there were a practical way to apply such influence.
+\(\beta_0\) (intercept) is observed to be zero or very close for the observed model while \(\beta_1\) is the expectation that an individual agent can exactly meet their sales target.
+
+\(e_i\) is the deviation from \(\hat{Y}_i\) for the individual sales person and is of the most interest for the purposes of this investigation. 
+
+The task at hand is to try to determine if there are any discernable patterns to \(e\), and if the combination of Quota and Group setting could control any discovered  pattern in particular if there were a practical way to apply such influence.
 
 #### Side note on the linear relationship; Sales depends on Quota:
 
-The simple 1:1 relationship so far discovered, is actually rather unintuitive as it is not conceivable that one could continually increase the quota and get a linear increase in sales to infinity. The reality is much more likely to be a log-linear relationship, with sales vastly outstripping lower quotas then trailing behind higher and higher quotas to a limit. It is assumed that these log-linear relationships are being mediated by a variable modeling easier or tougher customer groups. 
+The simple 1:1 relationship so far discovered, is actually rather unintuitive as it is not conceivable that one could continually increase the quota and get a linear increase in sales to infinity. The reality is much more likely to be a log-linear relationship, with sales vastly outstripping lower quotas then trailing behind higher and higher quotas to a limit. It is assumed that these log-linear relationships are being mediated by a variable modeling easier or tougher customer groups. This is perhaps the task of the sales manager or VP in charge to ensure the targets are realistic and achievable for each individual.
 
 Without any information about how the customers are modeled, the linear relationship is assumed to be this intuited variable, along with the log-linear relationship rolled up into the value of \(\beta_1\).
 
