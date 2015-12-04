@@ -27,6 +27,8 @@ The data is a census (complete for the population) and so inferential statistics
 
 Linear models are used to search for and quantify any differences between two identified groups within this population.
 
+The specific question for this investigation is this: Given that the determination of Group membership is not completely objective (i.e. does not follow a set cut off or threshold for Quota), is it possible that a group or some individuals are given lower quotas in order to help them meet their targets?
+
 ## Executive Summary
 
 TO DO
@@ -136,55 +138,44 @@ In general, group B has a much smaller size and much smaller variance in the sal
 
 The following figure demonstrates a clear trend between sales and quota which appears to be irrespective of group. As has been determined from the means, Group B have lower quotas and lower sales in absolute terms. 
 
-This information was not explicit in the information given with the data set, but seems to corroborate that these groups have different customer profiles. Group B appear to have the "tougher" sell and consequently sytematically lower quotas.
+This information was not explicit in the information given with the data set, but seems to corroborate that these groups have different customer profiles. Group B appear to have the "tougher" sell and consequently sytematically lower quotas, though there are a significant number of exceptions. These exceptions are of particular interest.
+
+An identity reference dotted line has been added to emphasise the almost exact 1:1 relationship with between Quota and Sales for group A. Group B shows a slope coefficient very slightly below 1. This will be quantified in later in the report.
 
 ```{r Exploratory_Graph_Sales_depends_Quota}
 # smooth line shows the strong trend between quota and sales
 q <- qplot(data = raw.data
       , x = Quota, y = Sales
-      , colour = Group, geom="point"
-      , alpha = I(0.8))
-q + ggtitle("Sales by Quota by Group") + theme_bw()
+      , colour = Group
+      , alpha = I(0.5))
+q <- q + geom_smooth(method = "lm", se = FALSE, size = 1.25)
+q <- q + geom_abline(intercept=0, slope=1, linetype = "dotted", alpha = 0.75)
+q <- q + labs(list(title = "Sales by Quota by Group \nwith lm fit and identity line"
+              , xlab = "Quota (1000's)", ylab = "Sales (1000's)")) + theme_bw()
+q
 ```
-
-The following figure demonstrates how Sales tracks quota on an almost 1:1 ratio. The Refline is intercept = 0, slope = 1. From this initial investigation, quota setting appears to be both fair and a good predictor of period end sales.
-
-```{r Exploratory_Graph_Sales_depends_Quota_Identity_Refline}
-# identity line show that sales matches quota one to one.
-xyplot((KQuota)~(KSales) | Group, raw.data
-       , panel = function(x,y) {
-         panel.xyplot(x,y)
-         panel.refline(0, 1, col = "Black")
-       }
-       , main = "Sales by Quota by Group \nwith identity line")
-```
-
 
 ### Attainment / Target
 
-The attainment variable is simply the ratio of Sales/Quota and represents the performance of individual sales agents. It is equivalent to fitting linear model where Yi = b0 + b1Xi where Y is Sales, X is Quota and b0 = 0 and b1 = 1. The attainment is equivalent to the residuals of the model Sales ~ Quota.
+The attainment variable supplied in the data set is simply the ratio of Sales/Quota and represents the performance of individual sales agents. It is equivalent to fitting linear model Sales depends on Quota.
 
-Or more precisely
+Or more generally
 
-Sales = b0 + b1 * Quota + e
+\[\hat{Y}_i = \beta_0 + \beta_1X_i + e_i\]
 
-Here, b0 is zero for the whole population but maybe slightly different in the two groups.
+where \(\hat{Y}_i\) is the predicted Sales value for individual given the Quota \(X_i\) and \(e_i\) is the deviation from \(\hat{Y}_i\) for the individual sales person.
 
-Assuming a in intercept of 0 we can say that
+So the task at hand is to try to determine if there are any discernable patterns to \(e\), and if the combination of Quota and Group setting could control any discovered  pattern in particular if there were a practical way to apply such influence.
 
-Sales/Quota = b1 + e = Attainment
-
-So the task at hand is to try to separate the b1 part from the e. Given this is a population/census, e can be said to represent the individual sales agent's response to any variables that don't exist in the given dataset (that haven't been measured) or simply each individuals difference from the performance predicted by the original quota model.
-
-TO DO: MATHS EXPRESSIONS
-
-The following figure shows that the attainmen for group A is relatively constant, no matter what the Quota, while for Group B the picture is not so clear. In the shadow of much higher variance, there are some signs of a different trend; Those with lower quotas may be finding it easier to meet and exceed the attainment while those with higher quotas struggle. This pattern is less clear and the regression line may be heavily influenced by a small number of significant outliers.
+The following figure shows that the on target attainment for group A is relatively constant, no matter what the Quota, while for Group B the picture is not so clear. In the shadow of much higher variance, there are some signs of a different trend; Those with lower quotas may be finding it easier to meet and exceed the attainment while those with higher quotas struggle. This pattern is less clear and the regression line may be heavily influenced by a small number of significant outliers.
 
 This investigation continues by attempting to find any patterns in those outliers despite the obviously limited data available.
 
 ```{r Exploratory_Graph_Attainment_Quota}
-q <- qplot(data = raw.data[-389,], x = Quota, y = OnTarget
-      , colour = Group, geom=c("point", "smooth"), method = "lm", se = FALSE)
+q <- qplot(data = raw.data, x = Quota, y = OnTarget
+      , colour = Group, alpha = I(0.5))
+q <- q + geom_smooth(method = "lm", se = FALSE, size = 1.25)
+q <- q + geom_abline(intercept=0, slope=1, linetype = "dotted", alpha = 0.75)
 q + ggtitle("Attainment by Quota by Group with lm fit") + theme_bw()
 ```
 
