@@ -175,18 +175,6 @@ where \(\hat{Y}_i\) is the predicted Sales value for individual given the Quota 
 
 The task at hand is to try to determine if there are any discernable patterns to \(e\), and if the combination of Quota and Group setting could control any discovered  pattern in particular if there were a practical way to apply such influence.
 
-#### Side note on the linear relationship; Sales depends on Quota:
-
-The simple 1:1 relationship so far discovered, is actually rather unintuitive as it is not conceivable that one could continually increase the quota and get a linear increase in sales to infinity. The reality is much more likely to be a log-linear relationship, with sales vastly outstripping lower quotas then trailing behind higher and higher quotas to a limit. It is assumed that these log-linear relationships are being mediated by a variable modeling easier or tougher customer groups. This is perhaps the task of the sales manager or VP in charge to ensure the targets are realistic and achievable for each individual.
-
-Without any information about how the customers are modeled, the linear relationship is assumed to be this intuited variable, along with the log-linear relationship rolled up into the value of \(\beta_1\).
-
-```{r expected_loglinear_increase_in_sales}
-x <- seq(5, 80, 0.5)
-y <- 9*log(x) + rnorm(length(x))
-xyplot(y~x, main = list("Intuitive relationship of Sales to Quotas\n(Simulation)", cex = 1)
-      , xlab = "Quota (1000's)", ylab = "Sales (1000's)")
-```
 
 The following figure shows that the on target attainment for group A is relatively constant, no matter what the Quota (as we have already seen). 
 
@@ -329,4 +317,49 @@ From the plot, it is perhaps not asking too much to accept verification of the e
 
 The Quota (scaled) has been superimposed on the series to seek any relationship between it the on target attainment, but there seems to be nothing beyond a noisy flat line.
 
-This report concludes that there has been no obvious rigging of the quotas, though further investigation of the small high performing cluster in Group B may be of interest if for no other reason than to learn from their best practices.
+The following plot show the ordered Cooks Distances of the the model residuals. Here the effect of the high variance in Group B is very clear. The leverage exerted by the top 5 most influential points is completely disproportionate.
+
+```{r cooks_diagnostics}
+n = nrow(raw.data)
+id = 1:n
+lm1_cks_dgn <- data.frame(cks = sort(cooks.distance(lm1))
+                          , idx = as.numeric(names(sort(cooks.distance(lm1))))
+                          , id= id, row.names = id)
+lm1_cks_dgn$KQuota <- KQuota[lm1_cks_dgn$idx]
+lm1_cks_dgn$OnTarget <- OnTarget[lm1_cks_dgn$idx]
+lm1_cks_dgn$Group <- Group[lm1_cks_dgn$idx]
+lm1_cks_dgn$jitter <- rnorm(n, sd = 0.001)
+
+xyplot((cks+jitter)~id
+       , data = lm1_cks_dgn
+       , group = Group
+       , main = list("Ordered Residual Cooks Distances", cex = 1)
+       , ylab = "Jittered residuals Cooks distances"
+       , panel = function(x,y,...) {
+         panel.xyplot(x,y,..., alpha = c(0.4, 0.8), pch = c(1, 19))
+         panel.xyplot(x,y = lm1_cks_dgn$KQuota/500+0.1,...
+                      , alpha = c(0.4, 0.5), type = "l")
+         panel.abline(v=328, lty = "dotted", col = "black", alpha = 0.5)
+         panel.text("High variance\nin Group B"
+                    , x = 375, y = 0.075, cex = 0.7)
+         })
+```
+
+Looking at their direction of influence, however, reveals a rather even split:
+
+
+
+#### Side note on the linear relationship; Sales depends on Quota:
+
+The simple 1:1 relationship so far discovered, is actually rather unintuitive as it is not conceivable that one could continually increase the quota and get a linear increase in sales to infinity. The reality is much more likely to be a log-linear relationship, with sales vastly outstripping lower quotas then trailing behind higher and higher quotas to a limit. It is assumed that these log-linear relationships are being mediated by a variable modeling easier or tougher customer groups. This is perhaps the task of the sales manager or VP in charge to ensure the targets are realistic and achievable for each individual.
+
+Without any information about how the customers are modeled, the linear relationship is assumed to be this intuited variable combined with the log-linear relationship all rolled up into the value of \(\beta_1\) of the linear model. No judgements can be made with the available data about how fair the the process of quota setting is at this level of detail.
+
+```{r expected_loglinear_increase_in_sales}
+x <- seq(5, 80, 0.5)
+y <- 9*log(x) + rnorm(length(x))
+xyplot(y~x, main = list("Intuitive relationship of Sales to Quotas\n(Simulation)", cex = 1)
+      , xlab = "Quota (1000's)", ylab = "Sales (1000's)")
+```
+
+This report concludes that there has been no obvious rigging of the quotas, though further investigation of the small high performing cluster in Group B may be of interest if for no other reason than to learn from their best practices. It is hoped that sharing of best practice among sales agents is already taking place year on year.
