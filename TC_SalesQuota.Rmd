@@ -21,15 +21,13 @@ output: html_document
 
 This report looks at the available data for annual sales for one sales department and seeks to gain assurance that quotas have been set fairly for all members of the sales department. The company, department and individuals remain anonymous.
 
-The data available is very limited and there are many questions that cannot be answered. This report seeks to determine what can be inferred based only on the available data.
+The data available are very limited and there are many questions that cannot be answered. This report seeks to determine what can be inferred based only on the available data.
 
 ## Executive Summary
 
 The specific question for this investigation is this; Given that the determination of group membership is not completely objective (i.e. does not follow a set cut off or threshold for Quota), is it possible that a group or some individuals are given lower quotas in order to help them meet their targets?
 
-This report concludes that a small cluster in the group of interest have performed well enough to improve the whole group average. It seems unlikely that any process has been rigged but perhaps a dataset including previous year performances and more information about quota setting could add some context.
-
-If nothing else, this high performing group could be a case study for more general improvements in the department though sharing of best practice.
+This report concludes that quota rigging is extremely unlikely to have taken place. However, the quota setting process is increasingly inaccurate with lower values of quota and the outcome of this is some very good and some very poor attainments on target. The split is even between these extremes and it's not possible to reach any other conclusion without much more information about individual cases.
 
 ## Detailed Report
 ### Data Sample and Exploratory Data Analysis
@@ -62,7 +60,6 @@ link <- "https://raw.githubusercontent.com/julianhatwell/TC_SalesQuotas/master/T
 raw.data <- read_csv(link)
 attach(raw.data)
 raw.data$Group <- as.factor(Group)
-raw.data$id <- seq_along(Sales)
 raw.data$KSales <- Sales/1000
 raw.data$KQuota <- Quota/1000
 raw.data$OnTarget <- (Sales-Quota)/Quota*100
@@ -138,11 +135,11 @@ kable(data.frame(
 ))
 ```
 
-In general, group B has a much smaller size and much smaller variance in the sales and quota, yet it has a much wider variance in the on target attainment variable. It seems that attainment in group B is less easy to predict, given either sales or quota. 
+In general, group B has a much smaller size and much smaller variance in the sales and quota, yet it has a much wider variance in the on target attainment variable. It seems that attainment in group B is less easy to predict for any given quota. 
 
 The following figure demonstrates a clear trend between sales and quota which appears to be irrespective of group. The lower values for mean quota and sales for Group B are clear.
 
-This information was not explicit in the information given with the data set, but seems to corroborate the face that these groups have different customer profiles. Group B appear to have the "tougher" sell and consequently sytematically lower quotas, though there are a significant number of exceptions.
+This information was not explicit in the information given with the data set, but seems to corroborate the fact that these groups have different customer profiles. Group B appear to have the "tougher" sell and consequently sytematically lower quotas, though there are a significant number of exceptions.
 
 An identity reference dotted line has been added to emphasise the almost exact 1:1 relationship with between Quota and Sales for group A. Group B shows a slope coefficient very slightly below 1. This will be quantified in later in the report with a linear model
 
@@ -165,22 +162,19 @@ The attainment variable supplied in the data set is simply the ratio of \(\frac{
 
 More generally
 
-\[\hat{Y}_i = \beta_0 + \beta_1X_i + e_i\]
+\[Y_i = \beta_0 + \beta_1X_i + e_i\]
 
-where \(\hat{Y}_i\) is the predicted Sales value for individual given the Quota \(X_i\). 
+Alternatively, \(e_i\) is the deviation from the predicted sales \(\hat{Y}_i\), given Quota \(X_i\). 
 
-\(\beta_0\) (intercept) is observed to be zero or very close for the observed model while \(\beta_1\) is the expectation that an individual agent can exactly meet their sales target.
+The task at hand is to try to determine if there are any discernable patterns to this deviation \(e\), and if the combination of Quota and Group could apply any influence.
 
-\(e_i\) is the deviation from \(\hat{Y}_i\) for the individual sales person and is of the most interest for the purposes of this investigation. 
+The following figure shows that the on target attainment for group A is relatively constant, no matter what the Quota (as was seen in the previous figure). 
 
-The task at hand is to try to determine if there are any discernable patterns to \(e\), and if the combination of Quota and Group setting could control any discovered  pattern in particular if there were a practical way to apply such influence.
+For Group B the picture is not so clear. In the shadow of much higher variance, there appears to be a different trend; Those with lower quotas may be finding it easier to meet and exceed the attainment while those with higher quotas struggle. This pattern is less clear and the regression line may be heavily influenced by a small number of significant outliers.
 
+There is a pattern of heteroscedasticity over the whole population, whereby the lower quotas are much poorer estimators of sales than the higher quotas. 
 
-The following figure shows that the on target attainment for group A is relatively constant, no matter what the Quota (as we have already seen). 
-
-For Group B the picture is not so clear. In the shadow of much higher variance, there are some signs of a different trend; Those with lower quotas may be finding it easier to meet and exceed the attainment while those with higher quotas struggle. This pattern is less clear and the regression line may be heavily influenced by a small number of significant outliers.
-
-There is a pattern of heteroscedasticity over the whole population, whereby the lower quotas are much poorer estimators of sales than the higher quotas. This could also be a factor influencing group B outcomes because they are all in the lower range of quotas.
+This could also be a factor influencing group B outcomes because they are all in the lower range of quotas.
 
 ```{r Exploratory_Graph_Attainment_Quota}
 q <- qplot(data = raw.data, x = KQuota, y = OnTarget
@@ -191,35 +185,12 @@ q <- q + labs(list(title = "Attainment by Quota by Group with lm fit"
 q
 ```
 
-The regression line for group B notably passing through the point with the highest quota. This is potentially a high leverage point and needs further investigation.
+## Linear Modeling
+Attainment is the unit free function of sales and is taken as the dependent variable, based on the assumption that quotas are set to drive sales. The Quota data is centred for each group with \(\bar{X} - \mu\).
 
-The following figure shows a histogram of the Attainment in each group. There is a noticeable skew to the Group B distribution.
+The other independent variable is the Group asignment, either A or B.
 
-```{r Histogram_Attainment}
-# These groups have the same average attainment 
-# but do they have the same distributions?
-histogram(~OnTarget | Group, layout = c(1, 2), breaks = 20
-          , main = "Histogram of group A and B attainment for comparison")
-```
-
-The following figure shows a Quantile-Quantile plot, reflecting the above mentioned skew.
-
-```{r QQ_Group_Attainment}
-# quantiles plot against T disp df = sample size -1.
-qq(Group~OnTarget
-   , type=c("p", "g")
-   , main = "Q-Q Attainment Grp A vs B"
-   , aspect = "xy"
-)
-```
-
-Group B appear to be over represented in the lower attainment group. There must be correspondingly a small set of high performers who pull up the group average to resemble Group A's mean.
-
-## Linear Models
-There are not many variables to choose from. 
-
-### 1. How does the quota affect sales
-Based on the assumptions that quotas are set to drive sales, the first model looks at predicted attainment, the coefficent of Sales ~ Quota for the two groups. The data is centred for each group with X - mu
+The only model constructed for this report includes both the independent variables.
 
 ```{r lm_Sales_depends_Quota_and_Group}
 # centering each group in its attainment mean
@@ -229,59 +200,19 @@ raw.data$OnTarget_C <- OnTarget - ifelse(Group == "A", mn_Tar_A, mn_Tar_B)
 
 attach(raw.data)
 
-lm1 <- lm(Sales_C ~ Group * Quota_C -1)
+lm1 <- lm(OnTarget ~ Group * Quota_C -1)
 summary(lm1)
 ```
 
-We see, unsurprisingly a slope coefficient for Group A of 0.99538, almost exactly an identity line as we've seen in the EDA.
+Unsurprisingly, this model returns a slope coefficient for Group A of 0.00186, almost no effect at all on attainment as was discovered in the EDA.
 
-Group B rises at a very slightly lower rate, 0.995 - 0.093 = 0.902
-Although the P-Value is 0.07, the reader is reminded that this is a census, not a sample and the differences are real, absolute and not inferred.
+Group B falls at a rate, 0.00186 - 0.48499 = -0.48027
 
-This difference in slope can be interpreted as Group A sells 995.4 units for every 1000 units of quota. Group B sells 902.2 units for every 1000 units of quota.
+According to this model, Group B loses 0.5 percentage points of attainment for every 1000 units of quota above the average.
 
-The next plot is the residuals cooks distances. Three very influential points are evident. 
+The following plot is the residuals in increasing order, seeking any discernable pattern in their distribution. The variance is evident, with the central values being sparsely populated by Group B
 
-```{r Resid_plot_lm1}
-plot(lm1, which = 4)
-```
-
-The following is the model and plot excluding these variables.
-
-```{r lm_Sales_depends_Quota_and_Group_exclude_outliers}
-outliers <- c(389,180,373)
-removeCooks <- raw.data[-outliers,]
-lm2 <- lm(Sales_C ~ Group * Quota_C -1, data = removeCooks)
-summary(lm2)
-```
-
-```{r Exploratory_Graph_Attainment_Quota_exclude_outliers}
-q <- qplot(data = removeCooks, x = Quota, y = OnTarget
-      , colour = Group, alpha = I(0.5))
-q <- q + geom_smooth(method = "lm", se = FALSE, size = 1.25)
-q + ggtitle("Attainment by Quota by Group with lm fit\nexcluding outliers") + theme_bw()
-```
-
-The negative difference in slope coefficient (reduction in on target attainment) is greater, indicating that these three points are highly influential and pulling up the attainment for the whole of group B.
-
-```{r outlier_quotas}
-mn_Quo_P <- mean(KQuota)
-mn_Sal_P <- mean(KSales)
-mn_Tar_P <- mean(OnTarget)
-kable(data.frame(
-        Sales_Agent = outliers
-        , KQuota = raw.data[outliers, c("KQuota")]
-        , Group = raw.data[outliers, c("Group")]))
-kable(data.frame(
-        Population_mean_KQuota = mn_Quo_P
-        , GroupA_mean_KQuota = mn_Quo_A
-        , GroupB_mean_KQuota = mn_Quo_B))
-
-```
-
-Clearly the two members of group B have not been given unduly easy quotas compared to the group average.
-
-The following plot is the residuals in increasing order, seeking any discernable pattern in their distribution.
+The Quota (scaled) has been superimposed on the series to seek any relationship between it the on target attainment, but there seems to be nothing beyond a noisy flat line. In fact the peak Quota value around 245 is only slightly above zero.
 
 ```{r Resid_Diagnostics}
 n = nrow(raw.data)
@@ -298,26 +229,14 @@ xyplot((res+jitter)~id
        , group = Group
        , main = list("Ordered Residuals", cex = 1)
        , ylab = "Jittered on target attainment (residuals)"
-       , prepanel = function(x,y,...) { 
-                      list(ylim = c(-20, 15))
-       }
        , panel = function(x,y,...) {
          panel.xyplot(x,y,..., alpha = c(0.5, 0.8), pch = c(1, 19))
-         panel.xyplot(x,y = lm1_res_dgn$KQuota/5-20,...
+         panel.xyplot(x,y = lm1_res_dgn$KQuota/5-35,...
                       , alpha = c(0.4, 0.5), type = "l")
-        panel.abline(v=c(175, 340, 380), lty = "dotted", col = "black", alpha = 0.5)
-         panel.text(c("Underperformance\nis over-represented\nin Group B"
-                      ,"Group B sparsely\nrepresented in\nneutral region"
-                      ,"Small cluster of\nhigh performers")
-                      , x = c(75,250,360), y = c(4,7,10), cex = 0.7)
        })
 ```
 
-From the plot, it is perhaps not asking too much to accept verification of the early diagnosis. Group B appear to be somewhat over-represented in the underperformers, while a small cluster of higher performers may pull up the over all average. 
-
-The Quota (scaled) has been superimposed on the series to seek any relationship between it the on target attainment, but there seems to be nothing beyond a noisy flat line.
-
-The following plot show the ordered Cooks Distances of the the model residuals. Here the effect of the high variance in Group B is very clear. The leverage exerted by the top 5 most influential points is completely disproportionate.
+The following plot show the ordered Cooks Distances. Colouring is again used to emphasis the difference between the groups and again the Quota (scaled) has been superimposed on the series. It  appears as though the very lowest quotas have delivered the wildest variation in performance.
 
 ```{r cooks_diagnostics}
 n = nrow(raw.data)
@@ -337,23 +256,29 @@ xyplot((cks+jitter)~id
        , ylab = "Jittered residuals Cooks distances"
        , panel = function(x,y,...) {
          panel.xyplot(x,y,..., alpha = c(0.4, 0.8), pch = c(1, 19))
-         panel.xyplot(x,y = lm1_cks_dgn$KQuota/500+0.1,...
+         panel.xyplot(x,y = lm1_cks_dgn$KQuota/1500+0.1,...
                       , alpha = c(0.4, 0.5), type = "l")
-         panel.abline(v=328, lty = "dotted", col = "black", alpha = 0.5)
+         panel.abline(v=300, lty = "dotted", col = "black", alpha = 0.5)
          panel.text("High variance\nin Group B"
                     , x = 375, y = 0.075, cex = 0.7)
          })
 ```
 
-Looking at their direction of influence, however, reveals a rather even split:
+All bar the most influential point have a quota well below the group average. The 2nd and third position show attainments both wildly above and below the expected zero mark. No data points for Group A are retuned:
 
+```{r cooks_distances_detail}
+head(lm1_cks_dgn[nrow(lm1_cks_dgn):1, c("cks", "KQuota", "OnTarget", "Group")],10)
+```
 
+## Conclusion
+
+This report concludes that while there is no clear evidence rigging of the quotas, the quota setting process is failing as a predictor of attainment for Group B. At the lower range of quotas, attainments are out by \(\pm50\) percentage points. 
 
 #### Side note on the linear relationship; Sales depends on Quota:
 
-The simple 1:1 relationship so far discovered, is actually rather unintuitive as it is not conceivable that one could continually increase the quota and get a linear increase in sales to infinity. The reality is much more likely to be a log-linear relationship, with sales vastly outstripping lower quotas then trailing behind higher and higher quotas to a limit. It is assumed that these log-linear relationships are being mediated by a variable modeling easier or tougher customer groups. This is perhaps the task of the sales manager or VP in charge to ensure the targets are realistic and achievable for each individual.
+The simple 1:1 relationship so far discovered, is actually rather unintuitive as it is not conceivable that one could continually increase the quota and get a linear increase in sales to infinity. The reality is much more likely to be a log relationship, with sales vastly outstripping lower quotas then trailing behind higher and higher quotas to a limit. It is assumed that this log relationship is being mediated by some modeling of easier or tougher customer groups. This is perhaps the task of the sales manager or VP in charge to ensure the targets are realistic and achievable for each individual.
 
-Without any information about how the customers are modeled, the linear relationship is assumed to be this intuited variable combined with the log-linear relationship all rolled up into the value of \(\beta_1\) of the linear model. No judgements can be made with the available data about how fair the the process of quota setting is at this level of detail.
+Without any information about how the customers are modeled, the linear relationship is assumed to be this intuited process combined with the log relationship all rolled up into the value of \(\beta_1\) of the linear model. No judgements can be made with the available data about how fair the the process of quota setting is at this level of detail.
 
 ```{r expected_loglinear_increase_in_sales}
 x <- seq(5, 80, 0.5)
@@ -361,5 +286,3 @@ y <- 9*log(x) + rnorm(length(x))
 xyplot(y~x, main = list("Intuitive relationship of Sales to Quotas\n(Simulation)", cex = 1)
       , xlab = "Quota (1000's)", ylab = "Sales (1000's)")
 ```
-
-This report concludes that there has been no obvious rigging of the quotas, though further investigation of the small high performing cluster in Group B may be of interest if for no other reason than to learn from their best practices. It is hoped that sharing of best practice among sales agents is already taking place year on year.
