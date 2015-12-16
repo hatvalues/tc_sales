@@ -19,20 +19,18 @@ output: html_document
 
 ## Introduction
 
-This report looks at the available data for annual sales for one sales department and seeks to gain assurance that quotas have been set fairly for all members of the sales department. The company, department and individuals remain anonymous.
+This report looks at the available data for annual sales for one sales department and seeks to gain assurance that quotas have been set fairly. The company, department and individuals remain anonymous.
 
-The data available are very limited and there are many questions that cannot be answered. This report seeks to determine what can be inferred based only on the available data.
+The data available are very limited and there are many questions that cannot be answered. This report seeks to determine what can be determined based only on the available data.
 
 ## Executive Summary
 
-The specific question for this investigation is this; Given that the determination of group membership is not completely objective (i.e. does not follow a set cut off or threshold for Quota), is it possible that a group or some individuals are given lower quotas in order to help them meet their targets?
+Within this sales department, quotas are set for each sales agent. An agent may be a member of group A or group B which denotes a specific customer account profile. Group B are set much lower quotas on average, reflecting a difference in difficulty to sell to group B customers. Nevertheless, the quota setting is highly variable for both groups, perhaps reflecting a subjective element or other factor in customer profiling and there may be scope to give certain sales agents a more favourable outcome.
 
-This report concludes that quota rigging is extremely unlikely to have taken place. However, the quota setting process is increasingly inaccurate with lower values of quota and the outcome of this is some very good and some very poor attainments on target. The split is even between these extremes and it's not possible to reach any other conclusion without much more information about individual cases.
+The specific question for this investigation is this; Given that the determination of group membership is not completely objective (i.e. does not follow a set cut off or threshold for Quota), is it possible that a group or some individuals are given lower quotas in order to help them meet their targets?
 
 ## Detailed Report
 ### Data Sample and Exploratory Data Analysis
-
-The data is a census (complete for the population) and so inferential statistics are not required. Means and variances can be discussed and considered as is,  without the need for standard errors and confidence intervals with which the reader might be accustomed.
 
 The data consists of a csv file with 422 rows and 4 columns. The rows represent individual sales agents in the department. The columns are as follows:
 
@@ -50,6 +48,8 @@ For the purpose of convenience, the following columns have been added:
 7. OnTarget - \(\frac{(Sales-Quota)}{Quota}\)  
 Centres on 100%. The values is now percentage points above or below target.
 
+8. MadeTarget - TRUE if OnTarget \(>= 0\), otherwise FALSE
+
 The following listing shows the top 6 rows of the data file followed by a standard summary.
 
 ```{r load_data}
@@ -63,11 +63,22 @@ raw.data$Group <- as.factor(Group)
 raw.data$KSales <- Sales/1000
 raw.data$KQuota <- Quota/1000
 raw.data$OnTarget <- (Sales-Quota)/Quota*100
+raw.data$MadeTarget <- raw.data$OnTarget >= 0
 
 attach(raw.data)
 head(raw.data)
 summary(select(raw.data, -c(Sales,Quota, Attainment)))
 ```
+
+The following boxplot shows the distribution of quotas set among those who made their quota and those who didn't. The two groups are compared:
+
+```{r boxplot_MadeTarget}
+bwplot(KQuota ~ factor(MadeTarget) | Group)
+```
+
+The data is a census (complete for the population) and so inferential statistics are not required. All statistics are descriptive without the need for standard errors and confidence intervals with which the reader might be accustomed. The difference in performance visible in Group B is real and should be quantified. The plot can be interpreted as follows:
+
+Taken as a whole, Group A's ability to make their target is not influenced by the quota setting. In contrast members in Group B who were set lower quotas were more somewhat more likely to exceed their targets and those with higher quotas more likely to fail. The difference is small but noticeable.
 
 The means and st. devs of the population and separately for groups A and B are presented here for reference:
 
@@ -158,21 +169,22 @@ q
 
 ### Attainment / Target
 
-The attainment variable supplied in the data set is simply the ratio of \(\frac{Sales}{Quota}\) and represents the performance of individual sales agents. It is equivalent to fitting linear model Sales depends on Quota, assuming the intercept is 0.
+The attainment variable supplied in the data set is simply the ratio of \(\frac{Sales}{Quota}\) and represents the performance of individual sales agents. It is equivalent to fitting linear model Sales ~ Quota, assuming the intercept is 0.
 
 More generally
 
-\[Y_i = \beta_0 + \beta_1X_i + e_i\]
+\[Y = \beta_0 + \beta_1X + \epsilon\]
 
-Alternatively, \(e_i\) is the deviation from the predicted sales \(\hat{Y}_i\), given Quota \(X_i\). 
+where \(X\) is Quota and \(Y\) is Sales. 
 
-The task at hand is to try to determine if there are any discernable patterns to this deviation \(e\), and if the combination of Quota and Group could apply any influence.
+The task at hand is to determine if there are any discernable patterns to the residual varation \(\epsilon\), that which is unexplained by the linear relationship between Sales and Quota. 
+
 
 The following figure shows that the on target attainment for group A is relatively constant, no matter what the Quota (as was seen in the previous figure). 
 
-For Group B the picture is not so clear. In the shadow of much higher variance, there appears to be a different trend; Those with lower quotas may be finding it easier to meet and exceed the attainment while those with higher quotas struggle. This pattern is less clear and the regression line may be heavily influenced by a small number of significant outliers.
+For Group B the picture is not so clear. In the shadow of much higher variance, there appears to be a different trend; As was seen in the exploratory box plot, those with lower quotas may be finding it easier to meet and exceed the attainment while those with higher quotas struggle. This pattern is less clear and the regression line may be heavily influenced by a small number of significant outliers.
 
-There is a pattern of heteroscedasticity over the whole population, whereby the lower quotas are much poorer estimators of sales than the higher quotas. 
+There is a pattern of heteroskedasticity over the whole population, whereby the lower quotas are much poorer estimators of sales than the higher quotas. 
 
 This could also be a factor influencing group B outcomes because they are all in the lower range of quotas.
 
@@ -186,9 +198,9 @@ q
 ```
 
 ## Linear Modeling
-Attainment is the unit free function of sales and is taken as the dependent variable, based on the assumption that quotas are set to drive sales. The Quota data is centred for each group with \(\bar{X} - \mu\).
+Attainment is the unit free function of sales and is taken as the dependent variable, based on the assumption that quotas are set to drive sales. The Quota data is centred for each group with \(X - \mu\).
 
-The other independent variable is the Group asignment, either A or B.
+The other independent variable is the Group asignment, a factor variable, either A or B.
 
 The only model constructed for this report includes both the independent variables.
 
@@ -272,13 +284,15 @@ head(lm1_cks_dgn[nrow(lm1_cks_dgn):1, c("cks", "KQuota", "OnTarget", "Group")],1
 
 ## Conclusion
 
-This report concludes that while there is no clear evidence rigging of the quotas, the quota setting process is failing as a predictor of attainment for Group B. At the lower range of quotas, attainments are out by \(\pm50\) percentage points. 
+Based on the information available, quota rigging cannot be completely ruled out but there is no evidence of any systemic problem. Only a more detailed analysis, focusing on specific individuals who have outperformed there expected attainment would be able to address this. 
 
-#### Side note on the linear relationship; Sales depends on Quota:
+However, the quota setting process is failing as a predictor of attainment at the lower range of quotas. Group B are heavily represented within this low range and their attainments are out by as much as \(\pm50\) percentage points. This process may benefit from a review.
+
+#### Side note on the linear relationship; Sales ~ Quota:
 
 The simple 1:1 relationship so far discovered, is actually rather unintuitive as it is not conceivable that one could continually increase the quota and get a linear increase in sales to infinity. The reality is much more likely to be a log relationship, with sales vastly outstripping lower quotas then trailing behind higher and higher quotas to a limit. It is assumed that this log relationship is being mediated by some modeling of easier or tougher customer groups. This is perhaps the task of the sales manager or VP in charge to ensure the targets are realistic and achievable for each individual.
 
-Without any information about how the customers are modeled, the linear relationship is assumed to be this intuited process combined with the log relationship all rolled up into the value of \(\beta_1\) of the linear model. No judgements can be made with the available data about how fair the the process of quota setting is at this level of detail.
+Without any information about how the customers are modeled, the linear relationship is assumed to be this intuited process combined with the log relationship all rolled up into the value of the slope coefficient \(\beta_1\) of the linear model. No judgements can be made with the available data about how fair the the process of quota setting is at this level of detail.
 
 ```{r expected_loglinear_increase_in_sales}
 x <- seq(5, 80, 0.5)
