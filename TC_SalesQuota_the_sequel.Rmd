@@ -1,0 +1,216 @@
+```{r global_options, echo=FALSE}
+knitr::opts_chunk$set(warning=FALSE, message=FALSE, echo=FALSE, fig.height=4, fig.width=7)
+```
+
+```{r load_libraries}
+library(knitr)
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(lattice)
+library(caret)
+```
+
+---
+title: "Investigation of fairness in sales quota setting"
+author: "Julian Hatwell"
+date: `r format(Sys.time(), "%b %Y") `
+output: html_document
+---
+
+```{r load_data}
+# original link
+link <- "https://raw.githubusercontent.com/julianhatwell/TC_SalesQuotas/master/TC_SalesQuota.csv"
+# local file
+#link <- "C:\\Dev\\Study\\R\\Tanc_investigation\\TC_SalesQuota.csv"
+raw.data <- read_csv(link)
+attach(raw.data)
+raw.data$Group <- as.factor(Group)
+raw.data$KSales <- Sales/1000
+raw.data$KQuota <- Quota/1000
+raw.data$OnTarget <- (Sales-Quota)/Quota*100
+raw.data$MadeTarget <- raw.data$OnTarget >= 0
+
+attach(raw.data)
+head(raw.data)
+summary(select(raw.data, -c(Sales,Quota, Attainment)))
+```
+
+```{r boxplot_MadeTarget}
+bwplot(KQuota ~ factor(MadeTarget) | Group
+       , strip = strip.custom(bg = "#9EC0FA")
+)
+```
+
+```{r means_stdevs_sales_quota}
+# means
+# pop
+mn_Quo_P <- mean(KQuota)
+mn_Sal_P <- mean(KSales)
+mn_Tar_P <- mean(OnTarget)
+kable(data.frame(
+  Population_mean_KQuota = mn_Quo_P
+  , Population_mean_KSales = mn_Sal_P
+  , Population_mean_OnTarget = mn_Tar_P
+))
+
+# Grp A
+mn_Quo_A <- mean(KQuota[Group == "A"])
+mn_Sal_A <- mean(KSales[Group == "A"])
+mn_Tar_A <- mean(OnTarget[Group == "A"])
+kable(data.frame(
+  GroupA_mean_KQuota = mn_Quo_A
+  , GroupA_mean_KSales = mn_Sal_A
+  , GroupA_mean_OnTarget = mn_Tar_A
+))
+
+# Grp B
+mn_Quo_B <- mean(KQuota[Group == "B"])
+mn_Sal_B <- mean(KSales[Group == "B"])
+mn_Tar_B <- mean(OnTarget[Group == "B"])
+kable(data.frame(
+  GroupB_mean_KQuota = mn_Quo_B
+  , GroupB_mean_KSales = mn_Sal_B
+  , GroupB_mean_OnTarget = mn_Tar_B
+))
+
+# St Devs
+# Pop
+sd_Quo_P <- sd(KQuota)
+sd_Sal_P <- sd(KSales)
+sd_Tar_P <- sd(OnTarget)
+kable(data.frame(
+      Population_StDev_KQuota = sd_Quo_P
+      , Population_StDev_KSales = sd_Sal_P
+      , Population_StDev_OnTarget = sd_Tar_P
+))
+
+# Grp A
+sd_Quo_A <- sd(KQuota[Group == "A"])
+sd_Sal_A <- sd(KSales[Group == "A"])
+sd_Tar_A <- sd(OnTarget[Group == "A"])
+kable(data.frame(
+      GroupA_StDev_KQuota = sd_Quo_A
+      , GroupA_StDev_KSales = sd_Sal_A
+      , GroupA_StDev_OnTarget = sd_Tar_A
+))
+
+# Grp B
+sd_Quo_B <- sd(KQuota[Group == "B"])
+sd_Sal_B <- sd(KSales[Group == "B"])
+sd_Tar_B <- sd(OnTarget[Group == "B"])
+kable(data.frame(
+      GroupB_StDev_KQuota = sd_Quo_B
+      , GroupB_StDev_KSales = sd_Sal_B
+      , GroupB_StDev_OnTarget = sd_Tar_B
+))
+```
+
+```{r Exploratory_Graph_Sales_depends_Quota}
+# smooth line shows the strong trend between quota and sales
+q <- qplot(data = raw.data
+      , x = KQuota, y = KSales
+      , colour = Group
+      , alpha = I(0.5))
+q <- q + geom_smooth(method = "lm", se = FALSE, size = 1.25)
+q <- q + geom_abline(intercept=0, slope=1, linetype = "dotted", alpha = 0.75)
+q <- q + labs(list(title = "Sales by Quota by Group \nwith lm fit and identity line"
+              , x = "Quota (1000's)", y = "Sales (1000's)")) + theme_bw()
+q
+```
+
+```{r Exploratory_Graph_Attainment_Quota}
+q <- qplot(data = raw.data, x = KQuota, y = OnTarget
+      , colour = Group, alpha = I(0.5))
+q <- q + geom_smooth(method = "lm", se = FALSE, size = 1.25)
+q <- q + labs(list(title = "Attainment by Quota by Group with lm fit"
+              , x = "Quota (1000's)", y = "Sales (1000's)")) + theme_bw()
+q
+```
+
+```{r lm_Sales_depends_Quota_and_Group}
+# centering each group in its attainment mean
+raw.data$Sales_C <- KSales - ifelse(Group == "A", mn_Sal_A, mn_Sal_B)
+raw.data$Quota_C <- KQuota - ifelse(Group == "A", mn_Quo_A, mn_Quo_B)
+raw.data$OnTarget_C <- OnTarget - ifelse(Group == "A", mn_Tar_A, mn_Tar_B)
+
+attach(raw.data)
+
+lm1 <- lm(OnTarget ~ Group * Quota_C -1)
+summary(lm1)
+```
+
+```{r Resid_Diagnostics}
+n = nrow(raw.data)
+id = 1:n
+lm1_res_dgn <- data.frame(res = sort(resid(lm1))
+                          , idx = as.numeric(names(sort(resid(lm1))))
+                          , id= id, row.names = id)
+lm1_res_dgn$KQuota <- KQuota[lm1_res_dgn$idx]
+lm1_res_dgn$Group <- Group[lm1_res_dgn$idx]
+lm1_res_dgn$jitter <- rnorm(n, sd = 0.25)
+
+xyplot((res+jitter)~id
+       , data = lm1_res_dgn
+       , group = Group
+       , main = list("Ordered Residuals", cex = 1)
+       , ylab = "Jittered on target attainment (residuals)"
+       , panel = function(x,y,...) {
+         panel.xyplot(x,y,..., alpha = c(0.5, 0.8), pch = c(1, 19))
+         panel.xyplot(x,y = lm1_res_dgn$KQuota/5-35,...
+                      , alpha = c(0.4, 0.5), type = "l")
+       })
+```
+
+```{r cooks_diagnostics}
+n = nrow(raw.data)
+id = 1:n
+lm1_cks_dgn <- data.frame(cks = sort(cooks.distance(lm1))
+                          , idx = as.numeric(names(sort(cooks.distance(lm1))))
+                          , id= id, row.names = id)
+lm1_cks_dgn$KQuota <- KQuota[lm1_cks_dgn$idx]
+lm1_cks_dgn$OnTarget <- OnTarget[lm1_cks_dgn$idx]
+lm1_cks_dgn$Group <- Group[lm1_cks_dgn$idx]
+lm1_cks_dgn$jitter <- rnorm(n, sd = 0.001)
+
+xyplot((cks+jitter)~id
+       , data = lm1_cks_dgn
+       , group = Group
+       , main = list("Ordered Residual Cooks Distances", cex = 1)
+       , ylab = "Jittered residuals Cooks distances"
+       , panel = function(x,y,...) {
+         panel.xyplot(x,y,..., alpha = c(0.4, 0.8), pch = c(1, 19))
+         panel.xyplot(x,y = lm1_cks_dgn$KQuota/1500+0.1,...
+                      , alpha = c(0.4, 0.5), type = "l")
+         panel.abline(v=300, lty = "dotted", col = "black", alpha = 0.5)
+         panel.text("High variance\nin Group B"
+                    , x = 375, y = 0.075, cex = 0.7)
+         })
+```
+
+```{r cooks_distances_detail}
+head(lm1_cks_dgn[nrow(lm1_cks_dgn):1, c("cks", "KQuota", "OnTarget", "Group")],10)
+```
+
+```{r prediction_model}
+raw.data <- cbind(raw.data, predict(dummyVars(KSales~Group
+                                , data = raw.data)
+                      , raw.data))
+
+model1 <- train(KSales~Group.A+Group.B+OnTarget+KQuota
+                , data = raw.data, method="glm")
+
+model2 <- train(KSales~Group.A+Group.B+OnTarget+KQuota
+                , data = raw.data, method="ada")
+
+model3 <- train(Group~OnTarget+KQuota+KSales
+                , data = raw.data, method="glm")
+
+model4 <- train(Group~OnTarget+KQuota+KSales
+                , data = raw.data, method="glm")
+confusionMatrix(predict(model4, raw.data), raw.data$Group)
+
+model5 <- train(Group~OnTarget+KQuota+KSales
+                , data = raw.data, method="ada")
+confusionMatrix(predict(model5, raw.data), raw.data$Group)
+```

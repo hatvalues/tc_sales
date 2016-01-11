@@ -73,7 +73,9 @@ summary(select(raw.data, -c(Sales,Quota, Attainment)))
 The following boxplot shows the distribution of quotas set among those who made their quota and those who didn't. The two groups are compared:
 
 ```{r boxplot_MadeTarget}
-bwplot(KQuota ~ factor(MadeTarget) | Group)
+bwplot(KQuota ~ factor(MadeTarget) | Group
+       , strip = strip.custom(bg = "#9EC0FA")
+)
 ```
 
 The data is a census (complete for the population) and so inferential statistics are not required. All statistics are descriptive without the need for standard errors and confidence intervals with which the reader might be accustomed. The difference in performance visible in Group B is real and should be quantified. The plot can be interpreted as follows:
@@ -295,8 +297,12 @@ The simple 1:1 relationship so far discovered, is actually rather unintuitive as
 Without any information about how the customers are modeled, the linear relationship is assumed to be this intuited process combined with the log relationship all rolled up into the value of the slope coefficient \(\beta_1\) of the linear model. No judgements can be made with the available data about how fair the the process of quota setting is at this level of detail.
 
 ```{r expected_loglinear_increase_in_sales}
+set.seed(1004)
 x <- seq(5, 80, 0.5)
 y <- 9*log(x) + rnorm(length(x))
-xyplot(y~x, main = list("Intuitive relationship of Sales to Quotas\n(Simulation)", cex = 1)
-      , xlab = "Quota (1000's)", ylab = "Sales (1000's)")
+xyplot(y~x
+       ,main = list("Intuitive relationship of Sales to Quotas\n(Simulation)"
+                    , cex = 1)
+      , xlab = "Quota (1000's)"
+      , ylab = "Sales (1000's)")
 ```
