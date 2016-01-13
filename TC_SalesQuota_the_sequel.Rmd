@@ -1,42 +1,10 @@
-```{r global_options, echo=FALSE}
-knitr::opts_chunk$set(warning=FALSE, message=FALSE, echo=FALSE, fig.height=4, fig.width=7)
-```
-
-```{r load_libraries}
-library(knitr)
-library(readr)
-library(dplyr)
-library(ggplot2)
-library(lattice)
-library(caret)
-```
-
----
-title: "Investigation of fairness in sales quota setting"
-author: "Julian Hatwell"
-date: `r format(Sys.time(), "%b %Y") `
-output: html_document
----
-
 ```{r load_data}
-# original link
-link <- "https://raw.githubusercontent.com/julianhatwell/TC_SalesQuotas/master/TC_SalesQuota.csv"
-# local file
-#link <- "C:\\Dev\\Study\\R\\Tanc_investigation\\TC_SalesQuota.csv"
-raw.data <- read_csv(link)
-attach(raw.data)
-raw.data$Group <- as.factor(Group)
-raw.data$KSales <- Sales/1000
-raw.data$KQuota <- Quota/1000
-raw.data$OnTarget <- (Sales-Quota)/Quota*100
-raw.data$MadeTarget <- raw.data$OnTarget >= 0
-
 attach(raw.data)
 head(raw.data)
 summary(select(raw.data, -c(Sales,Quota, Attainment)))
 ```
 
-```{r boxplot_MadeTarget}
+```{r boxplot_MadeTarget, opts.label=fig.wide}
 bwplot(KQuota ~ factor(MadeTarget) | Group
        , strip = strip.custom(bg = "#9EC0FA")
 )
