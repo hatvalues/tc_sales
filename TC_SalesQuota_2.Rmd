@@ -5,6 +5,7 @@ library(readr)
 library(dplyr)
 library(lattice)
 library(ggplot2)
+library(grid)
 
 knitr::opts_chunk$set(warning = FALSE
                       , message = FALSE
@@ -35,6 +36,36 @@ raw.data$MetTarget <- raw.data$OnTarget >= 0
 attach(raw.data)
 ```
 
+```{r missing_var_from_variance}
+set.seed(103)
+k <- 50
+wndws <- cbind(lwr = 1:(n-k+1), idx = floor(k/2):(n-floor(k/2)), upr = k:n)
+
+rsd <- as.numeric(rep(NA, n))
+for (i in 1:dim(wndws)[1]) {
+  rsd[wndws[i,"idx"]] <-  sd(raw.data$OnTarget[order(raw.data$Quota, decreasing = FALSE)][wndws[i,"lwr"]:wndws[i,"upr"]])
+}
+# bootstrap missing rolling window ends
+missing <- matrix(nrow = 2, ncol = 3)
+missing[1,] <- c(1
+                 , wndws[1,"idx"]-1
+                 , length(1:(wndws[1,"idx"]-1))
+                 )
+missing[2,] <- c(wndws[nrow(wndws)-floor(k/2),"idx"]+floor(k/2)+1
+                 , n
+                 , length((wndws[nrow(wndws)-floor(k/2),"idx"]+floor(k/2)+1):n)
+                 )
+# lower end
+rsd[missing[1,1]:missing[1,2]] <- sample(rsd[(missing[1,2]+1):(missing[1,2]+1+k)], missing[1,3], replace = TRUE)
+# upper end
+rsd[missing[2,1]:missing[2,2]] <- sample(rsd[(missing[2,1]-1):(missing[2,1]-1-k)], missing[2,3], replace = TRUE)
+
+rsd <- cbind(rsd, id = order(Quota))
+raw.data$rollingSD <- rsd[order(rsd[,"id"]),"rsd"]
+attach(raw.data)
+```
+
+
 ---
 title: "Investigation of fairness in sales quota setting"
 author: "Julian Hatwell"
@@ -42,18 +73,7 @@ date: `r format(Sys.time(), "%b %Y") `
 output: html_document
 ---
 
-## Introduction
-
-Some text here
-
-```{r data_summary}
-head(raw.data)
-summary(select(raw.data, -c(Sales,Quota, Attainment)))
-```
-
-The following boxplot shows the distribution of quotas set among those who made their quota and those who didn't. The two groups are compared:
-
-```{r boxplot_MetTarget, opts.label='fig.wide'}
+```{r boxplot_MetTarget, opts.label='fig.wide', eval=FALSE}
 bwplot(Quota ~ factor(MetTarget) | Group
         , strip = strip.custom(bg = myPal[4])
         , between = list(x = 0.5)
@@ -84,7 +104,7 @@ bwplot(Quota ~ factor(MetTarget) | Group
 
 Box plot theme could go into a master theme file.
 
-```{r means_stdevs_sales_quota}
+```{r means_stdevs_sales_quota, results='hide'}
 # means
 # pop
 mn_Quo_P <- mean(KQuota)
@@ -148,18 +168,6 @@ kable(data.frame(
 ))
 ```
 
-```{r Exploratory_Graph_Sales_depends_Quota, opts.label='fig.wide'}
-# smooth line shows the strong trend between quota and sales
-q <- qplot(data = raw.data
-      , x = KQuota, y = KSales
-      , colour = Group
-      , alpha = I(0.5))
-q <- q + geom_smooth(method = "lm", se = FALSE, size = 1.25)
-q <- q + geom_abline(intercept=0, slope=1, linetype = "dotted", alpha = 0.75)
-q <- q + labs(list(title = "Sales by Quota by Group \nwith lm fit and identity line"
-              , x = "Quota (1000's)", y = "Sales (1000's)")) + theme_bw()
-q
-```
 
 ### Attainment / Target
 
@@ -172,46 +180,6 @@ q <- q + labs(list(title = "Attainment by Quota by Group with lm fit"
 q
 ```
 
-## Linear Modeling
-
-```{r lm_Sales_depends_Quota_and_Group}
-# centering each group in its attainment mean
-raw.data$Sales_C <- KSales - ifelse(Group == "A", mn_Sal_A, mn_Sal_B)
-raw.data$Quota_C <- KQuota - ifelse(Group == "A", mn_Quo_A, mn_Quo_B)
-raw.data$OnTarget_C <- OnTarget - ifelse(Group == "A", mn_Tar_A, mn_Tar_B)
-
-attach(raw.data)
-
-lm1 <- lm(OnTarget ~ Group * Quota_C -1)
-summary(lm1)
-```
-
-```{r variance_as_a_predictor}
-set.seed(103)
-k <- 50
-wndws <- cbind(lwr = 1:(n-k+1), idx = floor(k/2):(n-floor(k/2)), upr = k:n)
-
-rollingSD <- as.numeric(rep(NA, n))
-for (i in 1:dim(wndws)[1]) {
-  rollingSD[wndws[i,"idx"]] <-  sd(raw.data$OnTarget[order(raw.data$Quota, decreasing = FALSE)][wndws[i,"lwr"]:wndws[i,"upr"]])
-}
-# bootstrap missing rolling window ends
-missing <- matrix(nrow = 2, ncol = 3)
-missing[1,] <- c(1
-                 , wndws[1,"idx"]-1
-                 , length(1:(wndws[1,"idx"]-1))
-                 )
-missing[2,] <- c(wndws[nrow(wndws)-floor(k/2),"idx"]+floor(k/2)+1
-                 , n
-                 , length((wndws[nrow(wndws)-floor(k/2),"idx"]+floor(k/2)+1):n)
-                 )
-# lower end
-rollingSD[missing[1,1]:missing[1,2]] <- sample(rollingSD[(missing[1,2]+1):(missing[1,2]+1+k)], missing[1,3], replace = TRUE)
-# upper end
-rollingSD[missing[2,1]:missing[2,2]] <- sample(rollingSD[(missing[2,1]-1):(missing[2,1]-1-k)], missing[2,3], replace = TRUE)
-
-raw.data <- cbind(raw.data[order(raw.data$Quota, decreasing = FALSE),], rollingSD)
-```
 
 ```{r missing_var_plot, opts.label='fig.wide'}
 q <- qplot(data = raw.data, x = KQuota, y = rollingSD
@@ -222,36 +190,61 @@ q <- q + labs(list(title = "Heteroskedastic Trend by Quota by Group"
 q
 ```
 
-```{r sim}
+```{r linear_models}
 lm.mvar <- lm(OnTarget~Group:Quota+rollingSD)
 summary(lm.mvar)
 ```
 
-```{r Exploratory_Graph_simSales_depends_Quota, opts.label='fig.wide'}
-set.seed(3334)
+```{r simulation_from_linear_model, opts.label='fig.wide'}
+set.seed(33354)
 coefs <- round(lm.mvar$coefficients,4)
 raw.data$simTarget <- rnorm(n, coefs[1] + 
                                coefs[2] * rollingSD +
-                             #(Group == "A") * 1 * coefs[3] * Quota +
                              (Group == "B") * 1 * coefs[4] * Quota
                           , sd = rollingSD) + 
                       rnorm(n, sd = sd(resid(lm.mvar)))
+
+raw.data$predict.lm.mvar <- predict(lm.mvar, raw.data)
+raw.data$predict.lm.mvar.adjusted <- predict(lm.mvar, raw.data) + (Group == "B") * 4.5 + 
+                      rnorm(n, sd = rollingSD)
+
 attach(raw.data)
 # root mean squared error
 sqrt(mean((simTarget-OnTarget)^2))
+sqrt(mean((predict.lm.mvar-OnTarget)^2))
+```
 
+```{r plot_simulated_outcome, opts.label='fig.wide'}
 q <- qplot(data = raw.data
-      , x = KQuota, y = simTarget
+      , x = Quota, y = simTarget
       , colour = Group
       , alpha = I(0.5))
 q <- q + geom_smooth(method = "lm", se = FALSE, size = 1.25)
 q <- q + labs(list(title = "Simulated Attainment by Quota by Group"
               , x = "Quota (1000's)", y = "On Target %")) + theme_bw()
 q
+```
 
-qplot(predict(lm.mvar, raw.data) + (Group == "B") * 4.5, OnTarget, colour = Group) +
+```{r same_from_predict, opts.label='fig.wide'}
+q <- qplot(data = raw.data
+      , x = Quota, y = predict.lm.mvar
+      , colour = Group
+      , alpha = I(0.5))
+q <- q + geom_smooth(method = "lm", se = FALSE, size = 1.25)
+q <- q + coord_cartesian(ylim = c(-45, 52))
+q <- q + labs(list(title = "Predicted Attainment by Quota by Group"
+              , x = "Quota (1000's)", y = "On Target %")) + theme_bw()
+q
+```
+
+```{r plot_pred_model, opts.label='fig.wide'}
+g <- ggplot(data = raw.data, aes(x = predict.lm.mvar, y = OnTarget, colour = Group), alpha = 0.5) +
+  geom_point() +
   theme_bw()
-qplot(predict(lm1, raw.data), OnTarget, colour = Group) +
-  theme_bw()
+g
+```
+
+```{r density, opts.label='fig.wide'}
 densityplot(~OnTarget, groups = Group, bw = 3, kernel = "gaussian")
 ```
+
