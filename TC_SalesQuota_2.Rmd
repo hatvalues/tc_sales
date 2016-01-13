@@ -3,12 +3,8 @@ library(knitr)
 library(stringr)
 library(readr)
 library(dplyr)
-#library(caret)
 library(lattice)
 library(ggplot2)
-#library(gridExtra)
-#library(parallel)
-#library(doParallel)
 
 knitr::opts_chunk$set(warning = FALSE
                       , message = FALSE
@@ -29,14 +25,15 @@ link <- "https://raw.githubusercontent.com/julianhatwell/TC_SalesQuotas/master/T
 # local file
 #link <- "C:\\Dev\\Study\\R\\Tanc_investigation\\TC_SalesQuota.csv"
 raw.data <- read_csv(link)
+n = nrow(raw.data)
 attach(raw.data)
 raw.data$Group <- as.factor(Group)
 raw.data$KSales <- Sales/1000
 raw.data$KQuota <- Quota/1000
 raw.data$OnTarget <- (Sales-Quota)/Quota*100
 raw.data$MetTarget <- raw.data$OnTarget >= 0
+attach(raw.data)
 ```
-
 
 ---
 title: "Investigation of fairness in sales quota setting"
@@ -50,7 +47,6 @@ output: html_document
 Some text here
 
 ```{r data_summary}
-attach(raw.data)
 head(raw.data)
 summary(select(raw.data, -c(Sales,Quota, Attainment)))
 ```
@@ -58,7 +54,7 @@ summary(select(raw.data, -c(Sales,Quota, Attainment)))
 The following boxplot shows the distribution of quotas set among those who made their quota and those who didn't. The two groups are compared:
 
 ```{r boxplot_MetTarget, opts.label='fig.wide'}
-bwplot(KQuota ~ factor(MetTarget) | Group
+bwplot(Quota ~ factor(MetTarget) | Group
         , strip = strip.custom(bg = myPal[4])
         , between = list(x = 0.5)
         , par.settings = list(
@@ -152,8 +148,7 @@ kable(data.frame(
 ))
 ```
 
-
-```{r Exploratory_Graph_Sales_depends_Quota}
+```{r Exploratory_Graph_Sales_depends_Quota, opts.label='fig.wide'}
 # smooth line shows the strong trend between quota and sales
 q <- qplot(data = raw.data
       , x = KQuota, y = KSales
@@ -168,20 +163,18 @@ q
 
 ### Attainment / Target
 
-```{r Exploratory_Graph_Attainment_Quota}
+```{r Exploratory_Graph_Attainment_Quota, opts.label='fig.wide'}
 q <- qplot(data = raw.data, x = KQuota, y = OnTarget
       , colour = Group, alpha = I(0.5))
 q <- q + geom_smooth(method = "lm", se = FALSE, size = 1.25)
 q <- q + labs(list(title = "Attainment by Quota by Group with lm fit"
-              , x = "Quota (1000's)", y = "Sales (1000's)")) + theme_bw()
+              , x = "Quota (1000's)", y = "On Target %")) + theme_bw()
 q
 ```
 
 ## Linear Modeling
 
 ```{r lm_Sales_depends_Quota_and_Group}
-lm.raw <- lm(OnTarget~Group * Quota)
-
 # centering each group in its attainment mean
 raw.data$Sales_C <- KSales - ifelse(Group == "A", mn_Sal_A, mn_Sal_B)
 raw.data$Quota_C <- KQuota - ifelse(Group == "A", mn_Quo_A, mn_Quo_B)
@@ -193,106 +186,72 @@ lm1 <- lm(OnTarget ~ Group * Quota_C -1)
 summary(lm1)
 ```
 
-```{r Resid_Diagnostics}
-n = nrow(raw.data)
-id = 1:n
-lm1_res_dgn <- data.frame(res = sort(resid(lm1))
-                          , idx = as.numeric(names(sort(resid(lm1))))
-                          , id= id, row.names = id)
-lm1_res_dgn$KQuota <- KQuota[lm1_res_dgn$idx]
-lm1_res_dgn$Group <- Group[lm1_res_dgn$idx]
-lm1_res_dgn$jitter <- rnorm(n, sd = 0.25)
-
-xyplot((res+jitter)~id
-       , data = lm1_res_dgn
-       , group = Group
-       , main = list("Ordered Residuals", cex = 1)
-       , ylab = "Jittered on target attainment (residuals)"
-       , panel = function(x,y,...) {
-         panel.xyplot(x,y,..., alpha = c(0.5, 0.8), pch = c(1, 19))
-         panel.xyplot(x,y = lm1_res_dgn$KQuota/5-35,...
-                      , alpha = c(0.4, 0.5), type = "l")
-       })
-```
-
-```{r cooks_diagnostics}
-n = nrow(raw.data)
-id = 1:n
-lm1_cks_dgn <- data.frame(cks = sort(cooks.distance(lm1))
-                          , idx = as.numeric(names(sort(cooks.distance(lm1))))
-                          , id= id, row.names = id)
-lm1_cks_dgn$KQuota <- KQuota[lm1_cks_dgn$idx]
-lm1_cks_dgn$OnTarget <- OnTarget[lm1_cks_dgn$idx]
-lm1_cks_dgn$Group <- Group[lm1_cks_dgn$idx]
-lm1_cks_dgn$jitter <- rnorm(n, sd = 0.001)
-
-xyplot((cks+jitter)~id
-       , data = lm1_cks_dgn
-       , group = Group
-       , main = list("Ordered Residual Cooks Distances", cex = 1)
-       , ylab = "Jittered residuals Cooks distances"
-       , panel = function(x,y,...) {
-         panel.xyplot(x,y,..., alpha = c(0.4, 0.8), pch = c(1, 19))
-         panel.xyplot(x,y = lm1_cks_dgn$KQuota/1500+0.1,...
-                      , alpha = c(0.4, 0.5), type = "l")
-         panel.abline(v=300, lty = "dotted", col = "black", alpha = 0.5)
-         panel.text("High variance\nin Group B"
-                    , x = 375, y = 0.075, cex = 0.7)
-         })
-```
-
-```{r cooks_distances_detail}
-head(lm1_cks_dgn[nrow(lm1_cks_dgn):1, c("cks", "KQuota", "OnTarget", "Group")],10)
-```
-
-
-
 ```{r variance_as_a_predictor}
+set.seed(103)
 k <- 50
-wndws <- cbind(lwr = 0:(422-k), idx = floor(k/2):(422-floor(k/2)), upr = k:422)
+wndws <- cbind(lwr = 1:(n-k+1), idx = floor(k/2):(n-floor(k/2)), upr = k:n)
 
-rollingSD <- as.numeric(rep(NA, 422))
+rollingSD <- as.numeric(rep(NA, n))
 for (i in 1:dim(wndws)[1]) {
   rollingSD[wndws[i,"idx"]] <-  sd(raw.data$OnTarget[order(raw.data$Quota, decreasing = FALSE)][wndws[i,"lwr"]:wndws[i,"upr"]])
 }
+# bootstrap missing rolling window ends
+missing <- matrix(nrow = 2, ncol = 3)
+missing[1,] <- c(1
+                 , wndws[1,"idx"]-1
+                 , length(1:(wndws[1,"idx"]-1))
+                 )
+missing[2,] <- c(wndws[nrow(wndws)-floor(k/2),"idx"]+floor(k/2)+1
+                 , n
+                 , length((wndws[nrow(wndws)-floor(k/2),"idx"]+floor(k/2)+1):n)
+                 )
+# lower end
+rollingSD[missing[1,1]:missing[1,2]] <- sample(rollingSD[(missing[1,2]+1):(missing[1,2]+1+k)], missing[1,3], replace = TRUE)
+# upper end
+rollingSD[missing[2,1]:missing[2,2]] <- sample(rollingSD[(missing[2,1]-1):(missing[2,1]-1-k)], missing[2,3], replace = TRUE)
 
 raw.data <- cbind(raw.data[order(raw.data$Quota, decreasing = FALSE),], rollingSD)
+```
 
+```{r missing_var_plot, opts.label='fig.wide'}
 q <- qplot(data = raw.data, x = KQuota, y = rollingSD
-       , colour = Group, alpha = I(0.5), xlim = c(15,52))
+       , colour = Group, alpha = I(0.5))
 q <- q + geom_smooth(span = 0.2, degree = 0, size = 1.25)
 q <- q + labs(list(title = "Heteroskedastic Trend by Quota by Group"
               , x = "Quota (1000's)", y = "Missing variable - falling variance")) + theme_bw()
 q
 ```
 
-```{r poisson_sim}
-# Create poisson simulations same size as population 
-# with lambda equal to their individual quotas plus an effect equal to their rollingSD
-# and noise equal to RSE from lm fit.
-
-# Need to impute missing rollingSD for this
-p_size <- nrow(raw.data)
-raw.data$simSales <- rpois(p_size, Quota + 0 #round(rnorm(p_size, sd = rollingSD),0)
-                           ) +
-resid(lm.raw)
-    #rnorm(nrow(raw.data), sd = sd(resid(lm.raw)))
-
-raw.data$KsimSales <- raw.data$simSales/1000
-raw.data$simOnTarget <- (simSales-Quota)/Quota*100
-raw.data$simMetTarget <- raw.data$OnTarget >= 0
-attach(raw.data)
+```{r sim}
+lm.mvar <- lm(OnTarget~Group:Quota+rollingSD)
+summary(lm.mvar)
 ```
 
+```{r Exploratory_Graph_simSales_depends_Quota, opts.label='fig.wide'}
+set.seed(3334)
+coefs <- round(lm.mvar$coefficients,4)
+raw.data$simTarget <- rnorm(n, coefs[1] + 
+                               coefs[2] * rollingSD +
+                             #(Group == "A") * 1 * coefs[3] * Quota +
+                             (Group == "B") * 1 * coefs[4] * Quota
+                          , sd = rollingSD) + 
+                      rnorm(n, sd = sd(resid(lm.mvar)))
+attach(raw.data)
+# root mean squared error
+sqrt(mean((simTarget-OnTarget)^2))
 
-```{r Exploratory_Graph_simSales_depends_Quota}
 q <- qplot(data = raw.data
-      , x = KQuota, y = KsimSales
+      , x = KQuota, y = simTarget
       , colour = Group
       , alpha = I(0.5))
 q <- q + geom_smooth(method = "lm", se = FALSE, size = 1.25)
-q <- q + geom_abline(intercept=0, slope=1, linetype = "dotted", alpha = 0.75)
-q <- q + labs(list(title = "Sales by Quota by Group \nwith lm fit and identity line"
-              , x = "Quota (1000's)", y = "Sales (1000's)")) + theme_bw()
+q <- q + labs(list(title = "Simulated Attainment by Quota by Group"
+              , x = "Quota (1000's)", y = "On Target %")) + theme_bw()
 q
+
+qplot(predict(lm.mvar, raw.data) + (Group == "B") * 4.5, OnTarget, colour = Group) +
+  theme_bw()
+qplot(predict(lm1, raw.data), OnTarget, colour = Group) +
+  theme_bw()
+densityplot(~OnTarget, groups = Group, bw = 3, kernel = "gaussian")
 ```
