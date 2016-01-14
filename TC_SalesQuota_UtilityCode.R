@@ -59,6 +59,8 @@ cluster2 <- Group == "B" &
 cluster3 <- Group == "B" & 
   OnTarget < highOutlierBoundary & 
   OnTarget > clusterTwoBoundary
+raw.data$clusterGroup <- ifelse(Group == "A", "GroupA", ifelse(cluster1, "cluster1", ifelse(cluster2, "cluster2", ifelse(cluster3, "cluster3", "outlier"))))
+attach(raw.data)
 
 ## ---- group_B_cluster_analysis ----
 basicClustAnal <- data.frame(
@@ -109,6 +111,7 @@ rsd[missing[2,1]:missing[2,2]] <- sample(rsd[(missing[2,1]-1):(missing[2,1]-1-k)
 
 rsd <- cbind(rsd, id = order(Quota))
 raw.data$rollingSD <- rsd[order(rsd[,"id"]),"rsd"]
+raw.data$oOrollingSD <- 1/rsd[order(rsd[,"id"]),"rsd"]
 attach(raw.data)
 
 ## ---- mvar_lm ----
