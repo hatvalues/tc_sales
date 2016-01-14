@@ -1,0 +1,243 @@
+```{r prologue, include=FALSE}
+library(knitr)
+library(stringr)
+library(readr)
+library(dplyr)
+library(lattice)
+library(ggplot2)
+
+knitr::opts_chunk$set(warning = FALSE
+                      , message = FALSE
+                      , echo = FALSE
+                      )
+
+knitr::opts_template$set(
+  fig.wide = list(fig.height = 4.5, fig.width = 8)
+  , fig.wideX = list(fig.height = 3, fig.width = 8)
+)
+```
+
+```{r source_external_code_chunks}
+read_chunk("TC_SalesQuota_UtilityCode.R")
+read_chunk("TC_SalesQuota_Plots.R")
+```
+
+```{r design_elements}
+# a nice colour palette
+myPal <- c("#8DD3C7", "#B0A8B3", "#9FB5D6", "#9EC0FA", "#DB8072")
+myPalDark <- c("#4D8377", "#504853", "#3F5576", "#3E409A", "#7B2012")
+myPalContrasts <- c(myPalDark[1], myPalDark[5], myPal[2], myPal[4]
+                    ,"#999999"
+                    , myPal[1], myPal[5], myPalDark[2], myPalDark[4])
+myPal.range <- colorRampPalette(c("#FFFFFF", myPal[3:1]))
+myPal.rangeDark <- colorRampPalette(c("#FFFFFF", myPalDark[3:1]))
+myPal.rangeDiv <- colorRampPalette(c(myPal[1], "#FFFFFF", myPal[5]))
+
+# applied to lattice
+MyLatticeFont <- list(font = 1, cex = 1, col = myPalDark[2])
+
+MyLatticeTheme <- list(
+  par.main.text = MyLatticeFont
+  , par.xlab.text = MyLatticeFont
+  , par.ylab.text = MyLatticeFont
+  , axis.text = MyLatticeFont
+  , fontsize = list(text = 11, points = 7)
+  , plot.symbol = list(col = myPalDark[5], pch = 19, alpha = 0.5, cex = 0.75)
+  , box.umbrella = list(col = myPalDark[5], lty = 2, lwd = 2)
+  , box.rectangle = list(fill = myPal.range(100)[3], col = myPalDark[5], lwd = 2)
+  , box.dot = list(col = myPalDark[5], pch = 15, cex = 0.8, alpha = 0.5)
+  , superpose.line = list(col = myPalContrasts)
+  , superpose.symbol = list(col = myPalContrasts)
+  , axis.line = list(col = myPal[2])
+  , strip.background = list(col=myPal.range(100)[3])
+  , strip.border = list(col = myPal[2])
+)
+MyLatticeStrip = strip.custom(par.strip.text = MyLatticeFont)
+
+# applied to ggplot2
+myGgTheme <- theme(plot.title = element_text(colour = myPalDark[2], size = 10)
+                  , axis.title = element_text(colour = myPalDark[2], size = 10)
+                  , axis.text = element_text(colour = myPalDark[2], size = 10)
+                  , legend.title = element_text(colour = myPalDark[2])
+                  , legend.text = element_text(colour = myPalDark[2]))
+```
+
+```{r Initial_Load}
+```
+
+---
+title: "Investigation of fairness in sales quota setting"
+author: "Julian Hatwell"
+date: `r format(Sys.time(), "%b %Y")`
+output: html_document
+---
+
+## Introduction
+
+This report looks at the available data for annual sales for one sales department and seeks to gain assurance that quotas have been set fairly. The company, department and individuals remain anonymous.
+
+The data available are very limited and there are many questions that cannot be answered. This report seeks to determine what can be determined based only on the available data.
+
+Within this sales department, quotas are set for each sales agent. An agent may be a member of group A or group B which denotes a specific customer account profile. Group B are set much lower quotas on average, reflecting a difference in difficulty to sell to group B customers. Nevertheless, the quota setting is highly variable for both groups, perhaps reflecting a subjective element or other factor in customer profiling and there may be scope to give certain sales agents a more favourable outcome.
+
+The specific question for this investigation is this; Given that the determination of group membership is not completely objective (i.e. does not follow a set cut off or threshold for Quota), is it possible that a group or some individuals are given lower quotas in order to help them meet their targets?
+
+## Executive Summary
+
+Analysis of the available data quickly revealed a strong linear relationship between Quota and Sales. There is no evidence of an upper limit from the data given. There may be scope to look for an upper bound on sales by reviewing the quota setting process. Simply pushing up the targets would appear feasible, given the linearity shown. Some less blunt instrument such as stretch targets would perhaps be recommended.
+
+A lack of upper limit here is non-intuitive. It is assumed then that the apparent linear relationship is there because quotas are set by the sales manager or VP in charge to ensure the targets are realistic and achievable for each individual. There is no further information about this process and it is the area under investigation. It is not known how much subjectivity is involved.
+
+Nevertheless, this report reveals potential artefacts or traces within the existing data that result could result from this quota setting process, suggesting which areas to focus on should the client wish to dig deeper.
+
+Group A appears to be very evenly distributed with no remarkable features.
+
+Group B appears as though it might contain 3 distinct clusters who each have measurably different outcomes in meeting their targets. Their id numbers are provided so that the distinguishing features can be investigated further. The may be good practice to share from the high performers to the lower performers. It may be a sign of some unknown bias. This is impossible to say.
+
+The quota setting process appears to be failing at the lower value end as the outcomes are extremely variable in this region. On average for group B, it appears that setting higher quotas has a slightly negative impact on their attainment.A review in this area is recommended.
+
+### Report Detail
+
+Note that the data are a census (complete for the population). This means that inferential statistics are not required. Any differences between the two groups, however big or small, are real and can be described without the use of confidence intervals.
+
+#### Comparing the two groups' performance
+
+```{r boxplot_MetTarget, opts.label='fig.wide'}
+```
+
+The inner spots showing the medians and the lines joining the group means show that as a group, A's ability to meet their target is not influenced by the magnitude of the quota. This in itself is quite interesting and defies intuition. Can the quota be set higher and still achieve the same parity?
+
+```{r group_B_cluster_params}
+```
+
+```{r densityplot_MetTarget, opts.label='fig.wide'}
+```
+
+Whilst Group A shows a classic bell curve centred around their on target mean of `r mean(OnTarget[Group == "A"])`, Group B show a definite skew, possibly the result of 3 distinct clusters. There are also one or two extreme outliers at either end with \(\pm\) 50% from target. This explains the much higher variance for this group's overall performance, despite a much narrower range of quotas.
+
+The lower clusters, having the greater numbers of members also have means much lower than the group average and this is excluding the effect of the outliers. Overall this group is performing much worse and is being pulled up by the presence of a smaller number of high performers.
+
+```{r group_B_cluster_analysis}
+```
+
+Without any other information it is impossible to determine whether these clusters are simply sparsity in the data, or whether they're the result of some unknown factor (events during the sales year, bias in the quota setting etc). The id numbers of members of each cluster are available in the Appendices.
+
+```{r ggplot_Sales_depends_Quota, opts.label='fig.wide'}
+```
+
+Immediately obvious is the strong linear relationship between Sales and Quota. This is true for both groups, though a small difference can be seen.
+
+However, this strong linearity this is a non-intuitive assumption. Consider if this model were true. One could simply increase the quotas and expect increased sales up to infinity. Sales must reach a limit at some point no matter what quota is set. 
+
+Certainly, the upper limits could be tested if the client so chooses. Simply raising quotas may be a blunt instrument. Stretch targets at a number of levels could be one tool to consider.
+
+The reality is much more likely to be a log relationship, with sales vastly outstripping lower quotas then trailing behind higher and higher quotas to a limit. It is assumed that this log relationship is being mediated by some modeling of easier or tougher customer groups.
+
+```{r expected_loglinear_increase_in_sales, opts.label='fig.wideX'}
+```
+
+Returning to the data in hand, the outcome in meeting the target can be plotted. Mathematically, this is identical to regressing on the Quota and the graph shows how each individual performed regardless of the target they were set.
+
+````{r ggplot_OnTarget_depends_Quota, opts.label='fig.wide'}
+```
+
+The above graph zooms in on the differences between Groups A and B. It is already known that B have the low range of quotas, but the difference in individual performances has a dramatically wider range. Group A hold their performance constant up to the highest given quotas while B show a steady decline. 
+
+The overall variance shrinks as quotas increase. This indicates that the quota setting process is failing at the lower range of quotas. Group B are heavily represented within this low range and their attainments are out by as much as \(\pm\) 50 percentage points. This process may benefit from a review.
+
+The above graph is equivalent to the ordinary least squares regression. The following model is instantiated below for this data.
+
+\[Y = \beta_1X_1 + \beta_2X_2 + \beta_3X_3 + \beta_4X_2X_3 + \epsilon\]
+
+where \(Y\) is Sales  
+\(X_1\) = 1 for a member of Group A, zero otherwise  
+\(X_2\) = 1 for a member of Group B, zero otherwise  
+\(X_3\) = Quota (centred at the mean)  
+\(\epsilon\) is the error or residual variation.
+
+The \(\beta)\ terms are coefficients.
+The data have been centred such that the intercept \(beta_0)\ is 0.
+
+```{r basic_lm}
+```
+
+These results tell the same story as the previous graph, but this is now quantifiable:
+
+* The value of quota set appears to have a negligable effect on the outcome for group A. For every 1000 units of quota, there is a 0.001 percentage point increase in around the target.
+* For the average quota, an individual in Group A will be predicted to miss their target by 0.62%
+* For group B this appears to be 0.67% below, though earlier findings suggest things may not be so simple here.
+* Group B loses almost 0.5 of a percentage point on target for every additional 1000 units of quota.
+
+For group B overall, it appears that setting higher quotas has a negative impact on their attainment. Again, this could be subject to a review.
+
+This model is rather unsatisfactory as can be seen in the following graph:
+
+```{r ggplot_pred_lm1, opts.label='fig.wide'}
+```
+
+Because of the tiny effect of quota, the model predicts the almost same value of every value of quota (all the points stand on a vertical line). This model is too inflexible and therefore highly biased. 
+
+Furthermore, and of interest for this investigation, there is the evidence of a heteroscedastic trend seen in the On Target vs Quota graph (previous to last).
+
+This trend is a telltale sign that there is more going on in the data and if possible, other variables should be investigated. Unfortunately there are none but there is one further round of reduction that can take place.
+
+Given that the trend is visible when the data are ordered by quota values, it is possible to detect this by using a rolling window along the ordered data and taking the variane or standard deviation. This "meta" variable varies along with the missing variable and can be used to represent it in a model.
+
+It is revealed in the following graph:
+
+```{r missing_var_from_variance}
+```
+
+````{r ggplot_missing_var, opts.label='fig.wide'}
+````
+
+Judging by the curvature, it could be assumed that the mystery variable has a reciprocal relationship with quota. However, for the sake of interpretability it is is used as is. This is instantiated in the following model:
+
+\[Y = \beta_1X_1 + \beta_2X_2 + \beta_3X_3 + \beta_4X_4 + \beta_5X_2X_3 + \epsilon\]
+
+where \(Y\) is Sales  
+\(X_1\) = 1 for a member of Group A, zero otherwise  
+\(X_2\) = 1 for a member of Group B, zero otherwise  
+\(X_3\) = Quota (centred at the mean)  
+\(X_4\) = The variable derived from a rolling SD computation on the heteroscedastic trend.
+\(\epsilon\) is the error or residual variation.
+
+````{r mvar_lm}
+```
+
+```{r ggplot_pred_lm.mvar, opts.label='fig.wide'}
+```
+
+This now gives a more realistic account of the variation that exists within group A. Of course, no linear model is perfect. This one does gives a compressed view of the true variation.
+
+It only remains to return to the initial discovery of possible clusters in the outcome on target and see if there is any relationship between them.
+
+```{r ggplot_cluster_analysis, opts.label='fig.wide'}
+```
+
+The horizontal colour banding is merely the arbitrary split defined early. There appear to be distinct vertical bands but this could be any artefact from the windowing or bootstrapping used to create the data and nothing can be concluded from this.
+
+## Appendix - Data Sample
+
+The data consists of a csv file with 422 rows and 4 columns. The rows represent individual sales agents in the department. The columns are as follows:
+
+1. Group (A or B) - Denotes the sales department sub-group. Each group sells the same products but has a different client profile and different quotas sales quotas.
+2. Sales - The overall sales to date for the year 2015. Units not given.
+3. Quota - The overall sales to date for the year 2015. Units not given. Assumed to be same units as sales.
+4. Attainment - ratio of \(\frac{Sales}{Quota}\) expressed as a percentage.
+
+For the purpose of convenience, the following columns have been added:
+
+5. KSales - \(\frac{Sales}{1000}\)  
+
+6. KQuota - \(\frac{Quota}{1000}\)  
+
+7. OnTarget - \(\frac{(Sales-Quota)}{Quota}\)  
+Centres on 100%. The values is now percentage points above or below target.
+
+8. MadeTarget - TRUE if OnTarget \(>= 0\), otherwise FALSE
+
+The following listing shows the top 6 rows of the data file followed by a standard summary.
+
+```{r Statistics}
+```
