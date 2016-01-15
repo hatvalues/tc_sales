@@ -58,8 +58,8 @@ xyplot(y~x, alpha = 0.6
   , xlab = "Quota (1000's)"
   , ylab = "Sales (1000's)"
   , panel = function(x, y, ...) {
-      panel.xyplot(x, y, ...)
-      panel.loess(x, y, col = myPal[1], lwd = 4
+      panel.xyplot(x, y, col = myPal[1], ...)
+      panel.loess(x, y, col = myPal[5], lwd = 4
                   , span = 0.25, degree = 2, ...)
   }
   )
@@ -75,11 +75,13 @@ gAQ <- ggplot(data = raw.data, aes(x = KQuota, y = OnTarget, colour = Group)) +
 gAQ
 
 ## ---- ggplot_pred_lm1 ----
-gLM1 <- ggplot(data = raw.data, aes(x = predict.lm1, y = OnTarget, colour = Group)) +
-  geom_point(alpha = I(0.5)) +
-  scale_colour_manual(values = myPalContrasts) +
-  labs(list(title = "Fitted Values vs Actual"
-            , x = "Fitted Values", y = "On Target %")) +
+gLM1 <- ggplot(data = raw.data
+               , aes(x = predict.lm1, y = (Sales_C-predict.lm1))) +
+  geom_point(alpha = I(0.75), colour = myPal[1]) +
+  geom_smooth(span = 0.75, degree = 1, size = 1.25
+              , se = FALSE, colour = myPal[5]) +
+  labs(list(title = "Fitted vs Residuals"
+            , x = "Fitted Values", y = "Residuals")) +
   theme_bw() + myGgTheme
 gLM1
 
@@ -88,41 +90,97 @@ gMVar <- ggplot(data = raw.data, aes(x = KQuota, y = rollingSD, colour = Group))
   geom_point(alpha = I(0.5)) +
   geom_smooth(span = 0.75, degree = 1, size = 1.25, se = FALSE) +
   scale_colour_manual(values = myPalContrasts) +
-  labs(list(title = "Heteroskedastic Trend by Quota by Group"
-                   , x = "Quota (1000's)", y = "Missing variable - falling variance")) +
-  theme_bw() + myGgTheme
+  labs(list(title = "Mystery Variable derived from Heteroskedastic Trend"
+                   , x = "Quota (1000's)", y = "Missing variable - decreasing variability")) +
+  theme_bw() + myGgThemeSilentY
+gMVar
+
+gMVar <- ggplot(data = raw.data, aes(x = KQuota, y = oOrollingSD, colour = Group)) +
+  geom_point(alpha = I(0.5)) +
+  geom_smooth(span = 0.75, degree = 1, size = 1.25, se = FALSE) +
+  scale_colour_manual(values = myPalContrasts) +
+  labs(list(title = expression(paste("The new variable from ", frac(10,Mystery),"
+        \"Certainty\" increases with Quota"))
+            , x = "Quota (1000's)", y = "Certainty")) +
+  theme_bw() + myGgThemeSilentY
 gMVar
 
 ## ---- ggplot_pred_lm.mvar ----
-gLMVar <- ggplot(data = raw.data, aes(x = predict.lm.mvar, y = OnTarget, colour = Group)) +
-  geom_point(alpha = I(0.5)) +
-  scale_colour_manual(values = myPalContrasts) +
-  labs(list(title = "Fitted Values vs Actual (model includes derived variable)"
-            , x = "Fitted Values", y = "On Target %")) +
+gLMVar <- ggplot(data = raw.data
+              , aes(x = predict.lm.mvar, y = (Sales_C-predict.lm.mvar))) +
+  geom_point(alpha = I(0.75), colour = myPal[1]) +
+  geom_smooth(span = 0.75, degree = 1, size = 1.25
+              , se = FALSE, colour = myPal[5]) +
+  labs(list(title = "Fitted vs Residuals, model including derived Certainty variable"
+            , x = "Fitted Values", y = "Residuals")) +
   theme_bw() + myGgTheme
 gLMVar
 
+## ---- ggplot_mystery_var ----
+gFMvar <- ggplot(data = subset(raw.data, clusterGroup != "outlier")
+                , aes(x = oOrollingSD, y = OnTarget
+                      , size = Quota, colour = Group)) +
+  geom_point(alpha = I(0.75)) +
+  geom_smooth(span = 0.75, degree = 1, size = 1.25, se = FALSE) +
+  scale_colour_manual(values = myPalContrasts) +
+  labs(list(title = "Effect of the isolated Certainty variable"
+            , x = "Certainty", y = "On Target %")) +
+  theme_bw() + myGgThemeSilentX
+gFMvar
+
+## ---- ggplot_mystery_varB ----
+gFMvarB <- ggplot(data = subset(raw.data, Group != "A" & clusterGroup != "outlier")
+                , aes(x = oOrollingSD, y = OnTarget
+                      , size = Quota)) +
+  xlim(0.42, 1.18) +
+  geom_point(alpha = I(0.5), colour = myPalContrasts[2]) +
+  geom_smooth(span = 0.75, degree = 1, size = 1
+              , se = FALSE, colour = myPalContrasts[2]) +
+  geom_vline(x = 0.78, linetype = "dashed", colour = myPal[3]) +
+  labs(list(title = "Effect of the isolated Certainty - focus on Group B"
+            , x = "Certainty", y = "On Target %")) +
+  theme_bw() + myGgThemeSilentX
+gFMvarB
+
+## ---- ggplot_cluster_reprise ----
+gD <- ggplot(data = subset(raw.data, Group != "A" & clusterGroup != "outlier")
+             , aes(x = OnTarget, fill = clusterGroup)) +
+  stat_bin(binwidth = (range(OnTarget)[2]-range(OnTarget)[1])/22
+           , aes(yend = ..density..), geom = "density"
+           , position = "dodge", alpha = 0.5) +
+  scale_fill_manual(values = myPalContrasts[c(7,3,4)]) +
+  coord_flip() +
+  labs(list(title = "Density of sales agents levels of performance"
+            , x = "On Target %", y = "Density (size of polygon proportional to group size)")) +
+  theme_bw() + myGgTheme
+gD
+
 ## ---- ggplot_cluster_analysis ----
-gclus <- ggplot(data = raw.data, aes(x = rollingSD, y = OnTarget)) +
-  geom_point(data = raw.data[(1:422)[cluster1],], aes(size = Quota), colour = myPalContrasts[2]) +
-  geom_point(data = raw.data[(1:422)[cluster2],], aes(size = Quota), colour = myPalContrasts[6]) +
-  geom_point(data = raw.data[(1:422)[cluster3],], aes(size = Quota), colour = myPalContrasts[9]) +
-  labs(list(title = "Analysis of Group B clusters"
-            , x = "Mystery Variable", y = "On Target %")) +
-  theme_bw() + myGgTheme
+gclus <- ggplot(data = subset(raw.data, Group != "A" & clusterGroup != "outlier")
+                , aes(x = oOrollingSD, y = OnTarget
+                      , colour = clusterGroup
+                      , size = Quota)) +
+  xlim(0.42, 1.18) +
+  geom_point(alpha = I(0.75)) +
+  geom_smooth(span = 0.8, degree = 1, size = 1, se = FALSE) +
+  geom_vline(x = 0.78, linetype = "dashed", colour = myPal[3]) +
+  scale_colour_manual(values = myPalContrasts[c(7,3,4)]) +
+  labs(list(title = "Effect of the isolated Certainty - focus on Group B clusters"
+            , x = "Certainty", y = "On Target %")) +
+  theme_bw() + myGgThemeSilentX
 gclus
 
-## ---- scratch ----
-gclus <- ggplot(data = subset(raw.data, clusterGroup != "outlier")
-                , aes(x = rollingSD, y = OnTarget
-                , shape = Group
-                , colour = Quota)) +
-  geom_point(size = I(4)) +
-  geom_smooth(se = FALSE) +
+## ---- bwplot_cluster_analysis ----
+bwplot(OnTarget~mvar_f | clusterGroup, data = raw.data %>%
+         filter(Group != "A" & clusterGroup != "outlier")
+      , par.settings = MyLatticeTheme
+      , strip = MyLatticeStrip
+      , scales = list(relation = "free")
+      , xlab = "Certainty"
+      , ylab = "To target %"
+      , main = "Effect of Certainty on performance to target"
+      , panel = function(x, y, ...) {
+        panel.bwplot(x, y, ...)
+        panel.average(x, y, lwd = 2, lty = 1, col = myPalDark[1], ...)
+      })
 
-    scale_colour_gradientn(colours = myPal.rangeDark(20)[3:10]) +
-    #geom_hline(yintercept = c(clusterOneBoundary, clusterTwoBoundary)) +
-  #labs(list(title = "Analysis of Group B clusters"
-  #          , x = "Mystery Variable", y = "On Target %")) +
-  theme_bw() + myGgTheme
-gclus

@@ -48,8 +48,10 @@ attach(raw.data)
 ## ---- group_B_cluster_params ----
 lowOutlierBoundary <- -30
 clusterOneBoundary <- -1
-clusterTwoBoundary <- 15.5
+clusterTwoBoundary <- 16.5
 highOutlierBoundary <- 40
+mvarBoundary <- 0.78
+
 cluster1 <- Group == "B" & 
   OnTarget < clusterOneBoundary & 
   OnTarget > lowOutlierBoundary
@@ -79,14 +81,13 @@ basicClustAnal <- data.frame(
 kable(basicClustAnal)
 
 ## ---- basic_lm ----
-lm1 <- lm(OnTarget ~ Group * Quota_C -1)
+lm1 <- lm(Sales_C ~ Group * Quota_C -1)
 raw.data$predict.lm1 <- lm1$fitted.values
 attach(raw.data)
-coef(lm1)
-(list(root.mean.squared.error = sqrt(mean((OnTarget - lm1$fitted.values)^2))
-      , median.absolute.deviation = abs(median(OnTarget - lm1$fitted.values)))
+round(coef(lm1),4)
+(list(root.mean.squared.error = sqrt(mean((Sales_C - lm1$fitted.values)^2))
+      , median.absolute.deviation = abs(median(Sales_C - lm1$fitted.values)))
 )
-
 
 ## ---- missing_var_from_variance ----
 set.seed(103)
@@ -114,17 +115,22 @@ rsd[missing[2,1]:missing[2,2]] <- sample(rsd[(missing[2,1]-1):(missing[2,1]-1-k)
 
 rsd <- cbind(rsd, id = order(Quota))
 raw.data$rollingSD <- rsd[order(rsd[,"id"]),"rsd"]
-raw.data$oOrollingSD <- 1/rsd[order(rsd[,"id"]),"rsd"]
+raw.data$oOrollingSD <- 1/rsd[order(rsd[,"id"]),"rsd"] * 10
+raw.data$mvar_f <- cut(1/rsd[order(rsd[,"id"]),"rsd"] * 10
+                       , c(0, mvarBoundary, max(1/rsd[order(rsd[,"id"]),"rsd"] * 10))
+                       , labels = c("low", "high"))
 attach(raw.data)
 
 ## ---- mvar_lm ----
-lm.mvar <- lm(OnTarget~Group * Quota_C + oOrollingSD -1)
+lm.mvar <- lm(Sales_C~Group * oOrollingSD + Quota_C * oOrollingSD -1)
 raw.data$predict.lm.mvar <- lm.mvar$fitted.values
 
 attach(raw.data)
-coef(lm.mvar)
-(list(root.mean.squared.error = sqrt(mean((OnTarget - lm.mvar$fitted.values)^2))
-      ,absolute.median.deviation = abs(median(OnTarget - lm.mvar$fitted.values)) ))
+round(coef(lm.mvar),4)
+(list(root.mean.squared.error = sqrt(mean((Sales_C - lm.mvar$fitted.values)^2))
+      ,absolute.median.deviation = abs(median(Sales_C - lm.mvar$fitted.values))
+      ))
+anova(lm1, lm.mvar)
 
 ## ---- Statistics ----
 head(select(raw.data, Sales, Quota, Attainment, OnTarget, MetTarget, Group))
@@ -160,6 +166,8 @@ kable(data.frame(
   , GroupB_StDev_KSales = sd_Sal_B
   , GroupB_StDev_OnTarget = sd_Tar_B
 ))
+
+## ---- Cluster_Ids ----
 (clusterMembers <- list(
   "cluster1" = (1:422)[cluster1]
   , "cluster2" = (1:422)[cluster2]
