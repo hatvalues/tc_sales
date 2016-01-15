@@ -83,7 +83,10 @@ lm1 <- lm(OnTarget ~ Group * Quota_C -1)
 raw.data$predict.lm1 <- lm1$fitted.values
 attach(raw.data)
 coef(lm1)
-(list(root.mean.squared.error = sqrt(mean((OnTarget - lm1$fitted.values)^2))))
+(list(root.mean.squared.error = sqrt(mean((OnTarget - lm1$fitted.values)^2))
+      , median.absolute.deviation = abs(median(OnTarget - lm1$fitted.values)))
+)
+
 
 ## ---- missing_var_from_variance ----
 set.seed(103)
@@ -115,11 +118,13 @@ raw.data$oOrollingSD <- 1/rsd[order(rsd[,"id"]),"rsd"]
 attach(raw.data)
 
 ## ---- mvar_lm ----
-lm.mvar <- lm(OnTarget~Group * Quota_C + rollingSD -1)
+lm.mvar <- lm(OnTarget~Group * Quota_C + oOrollingSD -1)
 raw.data$predict.lm.mvar <- lm.mvar$fitted.values
+
 attach(raw.data)
 coef(lm.mvar)
-(list(root.mean.squared.error = sqrt(mean((OnTarget - lm1$fitted.values)^2))))
+(list(root.mean.squared.error = sqrt(mean((OnTarget - lm.mvar$fitted.values)^2))
+      ,absolute.median.deviation = abs(median(OnTarget - lm.mvar$fitted.values)) ))
 
 ## ---- Statistics ----
 head(select(raw.data, Sales, Quota, Attainment, OnTarget, MetTarget, Group))

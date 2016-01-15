@@ -147,13 +147,12 @@ The overall variance shrinks as quotas increase. This indicates that the quota s
 
 The above graph is equivalent to the ordinary least squares regression. The following model is instantiated below for this data.
 
-\[Y = \beta_1X_1 + \beta_2X_2 + \beta_3X_3 + \beta_4X_2X_3 + \epsilon\]
+\[Y = \beta_1X_1 + \beta_2X_2 + \beta_3X_3 + \beta_4X_2X_3\]
 
 where \(Y\) is Sales  
 \(X_1\) = 1 for a member of Group A, zero otherwise  
 \(X_2\) = 1 for a member of Group B, zero otherwise  
 \(X_3\) = Quota (centred at the mean)  
-\(\epsilon\) is the error or residual variation.
 
 The \(\beta)\ terms are coefficients.
 The data have been centred such that the intercept \(beta_0)\ is 0.
@@ -193,14 +192,13 @@ It is revealed in the following graph:
 
 Judging by the curvature, it could be assumed that the mystery variable has a reciprocal relationship with quota. However, for the sake of interpretability it is is used as is. This is instantiated in the following model:
 
-\[Y = \beta_1X_1 + \beta_2X_2 + \beta_3X_3 + \beta_4X_4 + \beta_5X_2X_3 + \epsilon\]
+\[Y = \beta_1X_1 + \beta_2X_2 + \beta_3X_3 + \beta_4\frac{1}{X_4} + \beta_5X_2X_3\]
 
 where \(Y\) is Sales  
 \(X_1\) = 1 for a member of Group A, zero otherwise  
 \(X_2\) = 1 for a member of Group B, zero otherwise  
 \(X_3\) = Quota (centred at the mean)  
 \(X_4\) = The variable derived from a rolling SD computation on the heteroscedastic trend.
-\(\epsilon\) is the error or residual variation.
 
 ````{r mvar_lm}
 ```

@@ -113,22 +113,14 @@ gclus <- ggplot(data = raw.data, aes(x = rollingSD, y = OnTarget)) +
 gclus
 
 ## ---- scratch ----
-gclus <- ggplot(data = raw.data, aes(x = oOrollingSD, y = OnTarget)) +
-  geom_point(data = raw.data[(1:422)[cluster1],], aes(size = Quota), colour = myPalContrasts[2]) +
-  geom_point(data = raw.data[(1:422)[cluster2],], aes(size = Quota), colour = myPalContrasts[6]) +
-  geom_point(data = raw.data[(1:422)[cluster3],], aes(size = Quota), colour = myPalContrasts[9]) +
-  geom_hline(yintercept = c(clusterOneBoundary, clusterTwoBoundary)) +
-  labs(list(title = "Analysis of Group B clusters"
-            , x = "Mystery Variable", y = "On Target %")) +
-  theme_bw() + myGgTheme
-gclus
-
-gclus <- ggplot(data = subset(raw.data, Group == "A" & clusterGroup != "outlier")
-                , aes(x = oOrollingSD, y = OnTarget
-                , shape = clusterGroup, colour = Quota)) +
+gclus <- ggplot(data = subset(raw.data, clusterGroup != "outlier")
+                , aes(x = rollingSD, y = OnTarget
+                , shape = Group
+                , colour = Quota)) +
   geom_point(size = I(4)) +
-  scale_colour_gradientn(colours = myPal.rangeDark(20)[4:11]) +
+  geom_smooth(se = FALSE) +
 
+    scale_colour_gradientn(colours = myPal.rangeDark(20)[3:10]) +
     #geom_hline(yintercept = c(clusterOneBoundary, clusterTwoBoundary)) +
   #labs(list(title = "Analysis of Group B clusters"
   #          , x = "Mystery Variable", y = "On Target %")) +
