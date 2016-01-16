@@ -14,12 +14,13 @@ knitr::opts_chunk$set(warning = FALSE
 knitr::opts_template$set(
   fig.wide = list(fig.height = 4.5, fig.width = 8)
   , fig.wideX = list(fig.height = 3, fig.width = 8)
+  , fig.relaxed = list(fig.height = 6, fig.width = 8)
 )
 ```
 
 ```{r source_external_code_chunks}
-read_chunk("TC_SalesQuota_UtilityCode2.R")
-read_chunk("TC_SalesQuota_Plots2.R")
+read_chunk("TC_SalesQuota_UtilityCode.R")
+read_chunk("TC_SalesQuota_Plots.R")
 ```
 
 ```{r design_elements}
@@ -50,6 +51,7 @@ MyLatticeTheme <- list(
   , superpose.symbol = list(col = myPalContrasts)
   , axis.line = list(col = myPal[2])
   , strip.background = list(col=myPal.range(100)[3])
+  , strip.shingle = list(col=myPal.range(100)[12])
   , strip.border = list(col = myPal[2])
 )
 MyLatticeStrip = strip.custom(par.strip.text = MyLatticeFont)
@@ -79,8 +81,11 @@ myGgThemeSilentY <- theme(plot.title = element_text(colour = myPalDark[2], size 
 
 ```{r Initial_Load}
 ```
+# Investigation of fairness in sales quota setting  
 
-## Introduction
+#####Julian Hatwell
+#####`r format(Sys.time(), "%b %Y")`
+## Introduction  
 
 This report looks at the available data for annual sales for one sales department and seeks to gain assurance that quotas have been set fairly. The company, department and individuals remain anonymous.
 
@@ -98,17 +103,17 @@ Two disctinct issues emerge from the investigation:
 
 #### 1. Overall department sales trends are almost exact parity with the quotas. 
 
-Is there a trend for people to meet their targets and then stop trying? Are the quotas too blunt and instrument? Perhaps a review using stretch targets, or unlimited performance related bonus schemes, such as profit sharing, could allow the client to find the true upper limit for annual sales.
+Is there a trend for people to meet their targets and then stop trying? Are the quotas too blunt and instrument? Perhaps a review using stretch targets or unlimited performance related bonus schemes, such as profit sharing, could allow the client to find the true upper limit for annual sales.
 
 #### 2a. The quota setting process appears to be failing at the lower value end of values.
 
-The outcomes are extremely variable in the low value region implying that the quota originally set was not a good predictor. Some people are being set quotas they can't come anywhere near, while others seem to be set the low end of quotas and breeze through to a very high attainment over target.
+The outcomes are extremely variable in the low value region implying that the quota originally set was not a good predictor. Some people are being set quotas they can't come anywhere near, while others seem to be set the low end of quotas and breeze through to a high attainment over target.
 
 The working theory for this latter problem is that lower quotas are set where a sales agent is dealing with a tougher customer segment. The person responsible for setting the quotas has the task of balancing the quirks of each customer segment with what they consider to be an achievable target. This process is highly predictable for the high volume clients but breaks down and becomes unreliable for these more difficult customer groups. There is likely also to be uncertainty introduced simply by the lower volumes of sales coming in at this level.
 
 #### 2b. This problem is characterised differently between the two groups
 
-The quota setting for group B seems to be overcautious, allowing certain individuals to significantly outperform expectations after being given a low quota. Group A on the other hand are not so fortunate when faced with a low quota, this often isn't set low enough to give them a fair chance of success.
+The quota setting for group B seems to be over cautious, allowing certain individuals to significantly outperform expectations after being given a low quota. Group A on the other hand are not so fortunate. When faced with a low quota, this often isn't set low enough to give them a fair chance of success. Is there a bias built in that it's always easier to work with group A customers?
 
 This summary concludes with a recommendation to perform a wholesales review of the quota setting process. Id numbers associated with cases of particular interest are included in the appendices so that they can be further investigated on an individual basis.
 
@@ -121,7 +126,7 @@ Note that the data are a census (complete for the population). This means that i
 ```{r boxplot_MetTarget, opts.label='fig.wide'}
 ```
 
-The inner spots showing the medians and the lines joining the group means show that as a group, A's ability to meet their target is not influenced by the magnitude of the quota. This in itself is quite interesting and defies intuition. Can the quota be set higher and still achieve the same parity?
+The inner spots showing the medians and the lines joining the group means show that as a group, A's ability to meet their target is not strongly influenced by the magnitude of the quota. This in itself is quite interesting and defies intuition. Can the quota be set higher and still achieve the same parity?
 
 Group B appear to do better if set a lower target. On the surface this is obvious, but presumably the sales department don't want to make it too easy. Furthermore, why is this not also the case for group A?
 
@@ -133,7 +138,9 @@ Group B appear to do better if set a lower target. On the surface this is obviou
 
 This density plot shows where most sales agents fall in terms of their final outcome against target %
 
-While Group A shows a classic bell curve centred around their mean target of `r round(mn_Tar_A,2)`, Group B show a definite skew, possibly the result of 3 discrete clusters. Possible cluster boundaries have been indicated by the vertical lines. There are also one or two extreme outliers at either end with \(\pm\) 50% from target. This helps to visualise the much higher variance for this group's overall performance, despite a much narrower range of quotas (see Appendix A for the data summaries).
+Group A shows a classic bell curve centred around their mean attainment to target of `r round(mn_Tar_A,2)` percentage points.  
+
+Group B show a definite skew, possibly the result of 3 discrete clusters. Arbitrary cluster boundaries are suggested by the vertical lines. There are also one or two extreme outliers at either end with \(\pm\) 50% from target. This helps to visualise the much higher variance for this group's overall performance, despite a much narrower range of quotas (see Appendix A for the data summaries).
 
 The lower cluster, comprises the majority of group B members and also has a much lower local average than the group average. The presence of a smaller number of high performers is masking true performance of the majority.
 
@@ -149,7 +156,7 @@ Without any other information it is impossible to determine whether these cluste
 
 Immediately obvious is the strong, near unity linear relationship between Sales and Quota. This appears to be true for both groups, though a small difference can be seen with Group B not doing quite so well. However, in units of 1,000 this difference could translate to a significant amount in revenue.
 
-This strong linearity this is a non-intuitive observation. Consider if this model were true. One could simply increase the quotas and expect increased sales up to infinity.    
+This strong linearity is a non-intuitive observation. Consider that if this model were true, one could simply increase the quotas and expect increased sales up to infinity.    
 
 Sales must reach a limit at some point no matter what quota is set. Some kind of nonlinear relationship is expected, such as the one below (for illustrative purposes only).
 
@@ -168,33 +175,36 @@ where \(Y\) is Sales
 \(X_3\) = Quota (centred at the mean)  
 
 The \(\beta\) terms are coefficients.
-The data have been centred such that the intercept \(\beta_0\) is 0.
+The data have been centred such that the intercept \(\beta_0\) is 0. All other terms are in relation to the average quota within a group.
 
 ```{r basic_lm}
 ```
 
-The results are simple and interpretable. Both groups intersect at exactly the average sales given the average quota. Sales has a close to 1:1 relationship with quota for group A, but for group B this is `r coef(lm1)[3]` + `r coef(lm1)[3]` = `r coef(lm1)[3] + coef(lm1)[4]`. In other words, Group B loses about 10% of their unit sales, simply for being in Group B!
+The results are simple and interpretable. Both groups intersect at exactly the average sales given the average quota. Sales has a close to 1:1 relationship with quota for group A, but for group B this is `r round(coef(lm1)[3],4)` + `r round(coef(lm1)[4],4)` = `r round(coef(lm1)[3],4) + round(coef(lm1)[4],4)`. In other words, Group B loses about 10% of their unit sales, simply for being in Group B!
 
 ```{r ggplot_pred_lm1, opts.label='fig.wideX'}
 ```
 
 The residuals plot from the model is unremarkable. 
 
-This is a very simple model from simple data. It doesn't explain the clusters in density around the outcomes.
-
-We can see a heteroscedastic trend, not in the residual plot, but in the data itself as shown in the following graph of the outcome against target vs the Quota. 
+This is a crude model from simple data. It doesn't reveal anything about what's happening within group B.
 
 ````{r ggplot_OnTarget_depends_Quota, opts.label='fig.wide'}
 ```
 
-This plot zooms in on the difference between groups A and B. The outcome is the distance above or below the quota, regardless of actual sales values. Group A, with sales in parity with quota have a line that runs  horizontal along point zero. Group B do better if given a low quota and worse otherwise.
+The plot above zooms in on the difference between groups A and B. 
 
-The variance (spread of the points) is very high to the left, much lower to the right. This indicates that the predictability of the outcome at the time the quotas were set was much poorer for the lower range of quotas. There was more certainty about the outcome at the high value end.  
+The outcome to target is the distance above or below the quota, regardless of actual sales values. Group A, with sales in parity with quota have a line that runs  horizontal along point zero. Group B do better if given a low quota and worse otherwise.
+
+Detail has been added to highlight a cluster of Group B individuals who out performed their initiall low quota by around 25 percentage points.
+
+Furthermore, there is a heteroscedastic trend, not in the residuals, but in the data itself. This has been highlighted by the addition of dashed lines.
+
+This is a trend of the variance (spread of the points) which is very high to the left, much lower to the right. It indicates that the prediction of the outcomes at the time the quotas were set was much less reliable for the lower range of quotas. There was more certainty about the outcome at the high value end.  
 
 Perhaps these are the customers who are the tougher sell, giving a lower yield. Or they are low volumes high value customers, where a low season can have a big impact. Whatever it is, sales agents with these customers have to work harder for less overall sales value and have less certain outcomes.
 
 The true reasons for this are unknowable given the very limited information. What it indicates is that there is variable missing from the model.  
-
 This mystery variable is negatively correlated with the quota value. It causes the variance of the outcome to decrease as the quota increases. By taking standard deviation over a rolling window on the outcomes, ordered by quota, it should be possible to derive a representation of the mystery variable.
 
 ```{r missing_var_from_variance}
@@ -203,7 +213,7 @@ This mystery variable is negatively correlated with the quota value. It causes t
 ````{r ggplot_missing_var, opts.label='fig.wideX'}
 ````
 
-The plots show the variable derived from the heteroscedastic trend and then its reciprocal (multiplied by 10 for parity with other units). The latter will be referred to as Certainty for the remainder of the report because as Certainty increases, the outcomes become less variable (better predicted by the quota). The units have been ommitted because they are arbritrary. This variable is derived from a trace pattern in the data but the cause of that pattern is not known.
+The plots show the variable derived from the heteroscedastic trend and then its reciprocal (multiplied by 100 for parity with other units). The latter will be referred to as Certainty for the remainder of the report because as Certainty increases, the outcomes become less variable (better predicted by the quota). The units have been ommitted because they are arbritrary. This variable is derived from a trace pattern in the data but the cause of that pattern is not known.
 
 A new linear model is fit, including this derived notion of Certainty.
 
@@ -237,7 +247,7 @@ The graph shows the effect of the new Certainty variable on the outcomes. The pa
 ```{r ggplot_mystery_varB, opts.label='fig.wide'}
 ```
 
-Zooming in on Group B reveals that this Certainty variable could influence outcomes by around 10% or even more for extreme cases. There is a binary pattern of high and low value either side of a vertical gap. However, this may simply be an artefact of how the variable was derived and caution should be exercised before drawing any conclusions.
+Zooming in on Group B reveals that this Certainty variable could influence outcomes by around 10% or even more for extreme cases. There is a binary pattern of high and low value either side of a vertical gap. However, this may simply be an artefact of how the variable was derived and caution should be exercised before drawing any conclusions. This gap is used as an abritrary split to create groups who's quota was based on low or high Certainty for the next few graphs.
 
 It only remains to return to the initial discovery of possible clusters in the outcome on target and see if there is any relationship between them.
 
@@ -251,14 +261,29 @@ Above, the clusters have been transposed and coloured coded for reference.
 
 This plot possibly reveals how the clusters have come about. Points at the top left of the plot (low quotas and high achievements) appear to be dragged above and beyond what was expected. There is an equivalent downward drag on those burdened with a larger quota. The skew is introduced and the data separate into the visible bands noted at the start of the investigation.
 
-```{r bwplot_cluster_analysis, opts.label='fig.wide'}
+```{r bwplot_cluster_analysis, opts.label='fig.relaxed'}
 ```
 
-The box plots show the effect of the Certainty variable, as the view travels from underperformance in cluster 1 to high performance in cluster 3. Random variation would be distributed evenly above and below the mean. In these plots, it appears to be the case that uncertainty led to better results overall for a small group of individuals. On the whole, they had the lowest quotas to start with. These quotas appear to have been biased downwards, enabling the sales agents who received them to achieve around 5% better results at the end of the year.
+The box plots show the effect even more clearly. As the view travels from under performance in cluster 1 to high performance in cluster 3, a split appears between those agents whose final performance aligned with their quota and those who departed from it. 
 
-There could be any number of reasons for this. Retuning to the working theory; the Sales manager or VP's responsibility is to mediate an achievable target based on some measure of how easy or difficult a customer is. There's a reason the Sales vs Quota plots an almost perfect 1:1 regression line.
+In a fair setting, the number of individuals under performing and out performing would be evenly split, as it is in cluster 1. In a challenging target driven setting, there might be a group trend to be slightly under performing. In cluster three, the trend is weighted much more towords over performance.
 
-Intuitively, erring on the side of caution seems a plausible explanation. The VP knows these are really difficult customers and undercooks the quota out of a sense of fairness. Firm negotiation from the sales agents who have to work with these difficult clients is another possibility. Deliberate bias can't be ruled out, but there can be no suggestion of if from the available data.
+In these plots at least, it appears to be the case that uncertainty in the low value end of quota setting led to much better results overall for a small group of individuals. This amounts to somewhere around 5% or more on top of what would be expected just for having a lower quota.
+
+Compare the results with Group A. An arbritrary split has been applied by Quota to get three bands containing equal numbers of individuals.
+
+```{r bwplot_compare_analysis, opts.label='fig.relaxed'}
+```
+
+Here, there is a different trend. The Certainty around setting achievable quotas at the mid and high range is always high. These groups are centred just shy of zero which aligns with the working theory that the intention is to set quotas that are slightly challenging but achievable.
+
+The contrast is in the lowest quota band where those who diverged from their targets trend well below (median at -5 percentage points).
+
+There could be any number of reasons for this. Returning to the working theory; There's a reason the Sales vs Quota plots an almost perfect 1:1 regression line. The Sales manager or VP's responsibility is to mediate an achievable target based on some measure of how easy or difficult a customer is. 
+
+Intuitively, when it comes to Group B, erring on the side of caution seems a plausible explanation. The VP knows these are really difficult customers and undercooks the quota out of a sense of fairness. Firm negotiation from the sales agents who have to work with these difficult clients is another possibility. Deliberate bias can't be ruled out, but there can be no suggestion of it from the available data. 
+
+Many questions remain unanswered. Why the opposite pattern in Group A? If these agents a assigned a lower quota, is different reasoning applied? Should this be more aligned between the groups? What distinguishes a Group A low value customer segment from the Group B segments?
 
 The investigation concludes with a reminder that the available data are very limited, with only two predictor variables, plus a third that was derived from a discovered pattern. It can only be offered as a starting point for further investigation at the source.
 

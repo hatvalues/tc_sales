@@ -50,7 +50,7 @@ lowOutlierBoundary <- -30
 clusterOneBoundary <- -1
 clusterTwoBoundary <- 16.5
 highOutlierBoundary <- 40
-mvarBoundary <- 0.78
+mvarBoundary <- 7.8
 
 cluster1 <- Group == "B" & 
   OnTarget < clusterOneBoundary & 
@@ -75,9 +75,9 @@ basicClustAnal <- data.frame(
     , sum(cluster2)
     , sum(cluster3))
    , row.names = 
-    c("Cluster.1"
-    , "Cluster.2"
-    , "Cluster.3"))
+    c("cluster1"
+    , "cluster2"
+    , "cluster3"))
 kable(basicClustAnal)
 
 ## ---- basic_lm ----
@@ -113,11 +113,11 @@ rsd[missing[1,1]:missing[1,2]] <- sample(rsd[(missing[1,2]+1):(missing[1,2]+1+k)
 # upper end
 rsd[missing[2,1]:missing[2,2]] <- sample(rsd[(missing[2,1]-1):(missing[2,1]-1-k)], missing[2,3], replace = TRUE)
 
-rsd <- cbind(rsd, id = order(Quota))
+rsd <- cbind(rsd, oOrsd = 1/rsd * 100, id = order(Quota))
 raw.data$rollingSD <- rsd[order(rsd[,"id"]),"rsd"]
-raw.data$oOrollingSD <- 1/rsd[order(rsd[,"id"]),"rsd"] * 10
-raw.data$mvar_f <- cut(1/rsd[order(rsd[,"id"]),"rsd"] * 10
-                       , c(0, mvarBoundary, max(1/rsd[order(rsd[,"id"]),"rsd"] * 10))
+raw.data$oOrollingSD <- rsd[order(rsd[,"id"]),"oOrsd"]
+raw.data$mvar_f <- cut(rsd[order(rsd[,"id"]),"oOrsd"]
+                       , c(0, mvarBoundary, max(rsd[order(rsd[,"id"]),"oOrsd"]))
                        , labels = c("low", "high"))
 attach(raw.data)
 
