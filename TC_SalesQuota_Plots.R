@@ -46,10 +46,10 @@ gSQ <- ggplot(data = raw.data, aes(x = KQuota, y = KSales, colour = Group)) +
   theme_bw() + myGgTheme
 gSQ
 
-## ---- expected_loglinear_increase_in_sales ----
+## ---- expected_nonlinear_increase ----
 set.seed(1004)
-x <- seq(5, 60, 0.25)
-y <- 9*log(x) + rnorm(length(x))
+x <- KQuota #seq(5, 60, length.out = 422)
+y <- (x/(1+x) + rnorm(length(x), sd = 0.0025)) * 40
 xyplot(y~x, alpha = 0.6
   , scales = list(tck = c(1, 0))
   , par.settings = MyLatticeTheme
@@ -63,6 +63,26 @@ xyplot(y~x, alpha = 0.6
                   , span = 0.25, degree = 2, ...)
   }
   )
+
+## ---- mediated_binomial_sales ----
+set.seed(1004)
+x <- KQuota
+y <- (rbinom(422, round(Quota,0), p = 0.05) * 20 + 
+  rnorm(422, sd = 2500))/1000
+xyplot(y~x, alpha = 0.6
+       , scales = list(tck = c(1, 0))
+       , par.settings = MyLatticeTheme
+       , strip = MyLatticeStrip
+       , main = list("Sales modelled as a mediated binomial\n(Simulation)")
+       , xlab = "Quota (1000's)"
+       , ylab = "Sales (1000's)"
+       , panel = function(x, y, ...) {
+         panel.xyplot(x, y, col = myPal[1], ...)
+         panel.loess(x, y, col = myPal[5], lwd = 4
+                     , span = 0.25, degree = 2, ...)
+       }
+)
+
 
 ## ---- ggplot_pred_lm1 ----
 gLM1 <- ggplot(data = raw.data
@@ -202,14 +222,14 @@ bwplot(mvar_f~OnTarget | clusterGroup, data = raw.data %>%
       , scales = list(relation = "free")
       , xlab = "To target %"
       , ylab = "Certainty"
-      , main = "Effect of Certainty on performance to target"
+      , main = "Effect of Certainty on performance to target - Group B clusters"
       , panel = function(x, y, ...) {
         panel.bwplot(x, y, ...)
         panel.average(x, y, lwd = 2, lty = 1, col = myPalDark[1], ...)
       })
 
 ## ---- bwplot_compare_analysis ----
-QuotaBands <- equal.count(KQuota, number = 3)
+QuotaBands <- equal.count(KQuota, number = 8)
 bwplot(mvar_f~OnTarget | QuotaBands, data = raw.data %>%
          filter(Group == "A")
        , index.cond = list(c(3,2,1))
@@ -220,7 +240,7 @@ bwplot(mvar_f~OnTarget | QuotaBands, data = raw.data %>%
        , scales = list(relation = "free")
        , xlab = "To target %"
        , ylab = "Certainty"
-       , main = "Effect of Certainty on performance to target"
+       , main = "Effect of Certainty on performance to target - Group A"
        , panel = function(x, y, ...) {
          panel.bwplot(x, y, ...)
          panel.average(x, y, lwd = 2, lty = 1, col = myPalDark[1], ...)
