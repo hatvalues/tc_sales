@@ -273,20 +273,19 @@ In a fair setting, the number of individuals under performing and out performing
 
 In these plots at least, it appears to be the case that uncertainty in the low value end of quota setting led to much better results overall for a small group of individuals. This amounts to somewhere around 5% or more on top of what would be expected just for having a lower quota.
 
-Compare the results with Group A. An arbritrary split has been applied by Quota to get bands bands containing equal numbers of individuals. Only the lower three bands are shown as they roughly approximate the Group B clusters and above this quota level, there is only high Certainty.
+To compare the results with Group A, records within the same quota range are taken and split along the same quota boundaries.
 
 ```{r bwplot_compare_analysis, opts.label='fig.relaxed'}
 ```
 
-Here, there is a different trend. Where there was high  Certainty at quota setting, these were shown to be achievable, shown by the relevant boxes centred around zero.
+Here, there is a different trend. There is a very even split between those who diverged above and below their target. 
 
-The contrast is where those who diverged from their targets trend well below (median at -5 percentage points).
+For the most part, the effect of Certainty aligns with intuition in that the individuals with low certainty are generally at the more extreme position either above or below expectation. There is no clear separation around the given quota based on whether the outcome was above or below expectation.
 
-There could be any number of reasons for this. Returning to the working theory; There's a reason the Sales vs Quota plots an almost perfect 1:1 regression line. The Sales manager or VP's responsibility is to mediate an achievable target based on some measure of how easy or difficult a customer is. 
+Yet again, there is an unexplained group that appear to have exceeded their targets by a huge margin despite being in the high Certainty region (the 9 records cut as cluster3A). These individuals are all at the mid to low end of quota values for group A, but not over all for A and B combined. Their ids are available in the appendices for further investigation.
 
-Intuitively, when it comes to Group B, erring on the side of caution seems a plausible explanation. The VP knows these are really difficult customers and undercooks the quota out of a sense of fairness. Firm negotiation from the sales agents who have to work with these difficult clients is another possibility. Deliberate bias can't be ruled out, but there can be no suggestion of it from the available data. 
-
-Many questions remain unanswered. Why the opposite pattern in Group A? If these agents a assigned a lower quota, is different reasoning applied? Should this be more aligned between the groups? What distinguishes a Group A low value customer segment from the Group B segments?
+There could be any number of reasons for these patterns. Returning to the working theory; There's a reason the Sales vs Quota plots an almost perfect 1:1 regression line. The Sales manager or VP's responsibility is to mediate an achievable target based on some measure of how easy or difficult a customer is. 
+Intuitively, when it comes to Group B, erring on the side of caution seems a plausible explanation. The VP knows these are really difficult customers and undercooks the quota out of a sense of fairness. Firm negotiation from the sales agents who have to work with these difficult clients is another possibility. Deliberate bias can't be ruled out, but there can be no suggestion of it from the available data. The same circumstances may apply at the lower end of Group A but it is not so clear why this effect kicks in a little further up the spectrum of quota values.
 
 The investigation concludes with a reminder that the available data are very limited, with only two predictor variables, plus a third that was derived from a discovered pattern. It can only be offered as a starting point for further investigation at the source.
 

@@ -177,7 +177,7 @@ gFMvarB <- ggplot(data = subset(raw.data, Group != "A" & clusterGroup != "outlie
                                    , degree = 1)
               , size = 1
               , colour = myPalContrasts[2]) +
-  geom_vline(xintercept = 8, linetype = "dashed", colour = myPal[3]) +
+  geom_vline(xintercept = mvarBoundary, linetype = "dashed", colour = myPal[3]) +
   labs(list(title = "Effect of the isolated Certainty - focus on Group B"
             , x = "Certainty", y = "On Target %")) +
   theme_bw() + myGgThemeSilentX
@@ -207,7 +207,7 @@ gclus <- ggplot(data = subset(raw.data, Group != "A" & clusterGroup != "outlier"
               , method.args = list(span = 0.8
                                    , degree = 1)
               , size = 1) +
-  geom_vline(xintercept = 8, linetype = "dashed", colour = myPal[3]) +
+  geom_vline(xintercept = mvarBoundary, linetype = "dashed", colour = myPal[3]) +
   scale_colour_manual(values = myPalContrasts[c(7,3,4)]) +
   labs(list(title = "Effect of the isolated Certainty - focus on Group B clusters"
             , x = "Certainty", y = "On Target %")) +
@@ -271,7 +271,10 @@ bwplot(mvar_f~OnTarget | clusterGroupA, data = raw.data %>%
                     , lab = paste("Quota range", factor.levels[which.panel[which.given]]))
          panel.text(x = 1, y = 0.5, pos = 2
                     , col = myPalDark[2]
-                    , lab = factor.levels[which.panel[which.given]])
+                    , lab = paste(factor.levels[which.panel[which.given]]
+                                  , nrow(raw.data[clusterGroupA == factor.levels[which.panel[which.given]],])
+                                  , "records")
+         )
        }
        , layout = c(1,3)
        , scales = list(relation = "free")

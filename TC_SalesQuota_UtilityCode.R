@@ -50,7 +50,7 @@ lowOutlierBoundary <- -25
 clusterOneBoundary <- -1
 clusterTwoBoundary <- 16.5
 highOutlierBoundary <- 35
-mvarBoundary <- 8
+mvarBoundary <- 7.38
 
 cluster1 <- Group == "B" & 
   OnTarget < clusterOneBoundary & 
@@ -186,4 +186,5 @@ kable(data.frame(
 (clusterMembers <- list(
   "cluster1" = (1:422)[cluster1]
   , "cluster2" = (1:422)[cluster2]
-  , "cluster3" = (1:422)[cluster3]))
+  , "cluster3" = (1:422)[cluster3]
+  , "cluster3A" = (1:422)[cluster3A]))
