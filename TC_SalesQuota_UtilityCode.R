@@ -1,8 +1,8 @@
 ## ---- Initial_Load ----
 # original link
-link <- "https://raw.githubusercontent.com/julianhatwell/TC_SalesQuotas/master/TC_SalesQuota.csv"
+# link <- "https://raw.githubusercontent.com/julianhatwell/TC_SalesQuotas/master/TC_SalesQuota.csv"
 # local file
-#link <- "C:\\Dev\\Study\\R\\Tanc_investigation\\TC_SalesQuota.csv"
+link <- "C:\\Dev\\Study\\R\\TC_SalesQuotas\\TC_SalesQuota.csv"
 raw.data <- read_csv(link)
 n = nrow(raw.data)
 attach(raw.data)
@@ -46,11 +46,11 @@ raw.data$OnTarget_C <- OnTarget - ifelse(Group == "A", mn_Tar_A, mn_Tar_B)
 attach(raw.data)
 
 ## ---- group_B_cluster_params ----
-lowOutlierBoundary <- -30
+lowOutlierBoundary <- -25
 clusterOneBoundary <- -1
 clusterTwoBoundary <- 16.5
-highOutlierBoundary <- 40
-mvarBoundary <- 7.8
+highOutlierBoundary <- 35
+mvarBoundary <- 8
 
 cluster1 <- Group == "B" & 
   OnTarget < clusterOneBoundary & 
@@ -61,7 +61,22 @@ cluster2 <- Group == "B" &
 cluster3 <- Group == "B" & 
   OnTarget < highOutlierBoundary & 
   OnTarget > clusterTwoBoundary
+
+cluster1A <- Group == "A" & 
+  OnTarget < clusterOneBoundary & 
+  OnTarget > lowOutlierBoundary &
+  KQuota <= max(KQuota[Group == "B"])
+cluster2A <- Group == "A" & 
+  OnTarget < clusterTwoBoundary & 
+  OnTarget > clusterOneBoundary &
+  KQuota <= max(KQuota[Group == "B"])
+cluster3A <- Group == "A" & 
+  OnTarget < highOutlierBoundary & 
+  OnTarget > clusterTwoBoundary &
+  KQuota <= max(KQuota[Group == "B"])
+
 raw.data$clusterGroup <- ifelse(Group == "A", "GroupA", ifelse(cluster1, "cluster1", ifelse(cluster2, "cluster2", ifelse(cluster3, "cluster3", "outlier"))))
+raw.data$clusterGroupA <- ifelse(Group == "B", "GroupB", ifelse(cluster1A, "cluster1A", ifelse(cluster2A, "cluster2A", ifelse(cluster3A, "cluster3A", "outlier"))))
 attach(raw.data)
 
 ## ---- group_B_cluster_analysis ----

@@ -88,8 +88,11 @@ xyplot(y~x, alpha = 0.6
 gLM1 <- ggplot(data = raw.data
                , aes(x = predict.lm1, y = (Sales_C-predict.lm1))) +
   geom_point(alpha = I(0.75), colour = myPal[1]) +
-  geom_smooth(span = 0.75, degree = 1, size = 1.25
-              , se = FALSE, colour = myPal[5]) +
+  geom_smooth(method = "loess", se = FALSE
+              , method.args = list(span = 0.75
+                                 , degree = 1)
+              , size = 1.25
+              , colour = myPal[5]) +
   labs(list(title = "Fitted vs Residuals"
             , x = "Fitted Values", y = "Residuals")) +
   theme_bw() + myGgTheme
@@ -111,7 +114,10 @@ gAQ
 ## ---- ggplot_missing_var ----
 gMVar <- ggplot(data = raw.data, aes(x = KQuota, y = rollingSD, colour = Group)) +
   geom_point(alpha = I(0.5)) +
-  geom_smooth(span = 0.75, degree = 1, size = 1.25, se = FALSE) +
+  geom_smooth(method = "loess", se = FALSE
+              , method.args = list(span = 0.75
+                                   , degree = 1)
+              , size = 1.25) +
   scale_colour_manual(values = myPalContrasts) +
   labs(list(title = "Mystery Variable derived from Heteroscedastic Trend"
                    , x = "Quota (1000's)", y = "Missing variable - decreasing variability")) +
@@ -120,7 +126,10 @@ gMVar
 
 gMVar <- ggplot(data = raw.data, aes(x = KQuota, y = oOrollingSD, colour = Group)) +
   geom_point(alpha = I(0.5)) +
-  geom_smooth(span = 0.75, degree = 1, size = 1.25, se = FALSE) +
+  geom_smooth(method = "loess", se = FALSE
+              , method.args = list(span = 0.75
+                                   , degree = 1)
+              , size = 1.25) +
   scale_colour_manual(values = myPalContrasts) +
   labs(list(title = expression(paste("The new variable from ", frac(100,Mystery),"
         \"Certainty\" increases with Quota"))
@@ -132,8 +141,11 @@ gMVar
 gLMVar <- ggplot(data = raw.data
               , aes(x = predict.lm.mvar, y = (Sales_C-predict.lm.mvar))) +
   geom_point(alpha = I(0.75), colour = myPal[1]) +
-  geom_smooth(span = 0.75, degree = 1, size = 1.25
-              , se = FALSE, colour = myPal[5]) +
+  geom_smooth(method = "loess", se = FALSE
+              , method.args = list(span = 0.75
+                                   , degree = 1)
+              , size = 1.25
+              , colour = myPal[5]) +
   labs(list(title = "Fitted vs Residuals, model including derived Certainty variable"
             , x = "Fitted Values", y = "Residuals")) +
   theme_bw() + myGgTheme
@@ -144,7 +156,10 @@ gFMvar <- ggplot(data = subset(raw.data, clusterGroup != "outlier")
                 , aes(x = oOrollingSD, y = OnTarget
                       , size = Quota, colour = Group)) +
   geom_point(alpha = I(0.75)) +
-  geom_smooth(span = 0.75, degree = 1, size = 1.25, se = FALSE) +
+  geom_smooth(method = "loess", se = FALSE
+              , method.args = list(span = 0.75
+                                   , degree = 1)
+              , size = 1.25) +
   scale_colour_manual(values = myPalContrasts) +
   labs(list(title = "Effect of the isolated Certainty variable"
             , x = "Certainty", y = "On Target %")) +
@@ -157,9 +172,12 @@ gFMvarB <- ggplot(data = subset(raw.data, Group != "A" & clusterGroup != "outlie
                       , size = Quota)) +
   xlim(4.2, 11.8) +
   geom_point(alpha = I(0.5), colour = myPalContrasts[2]) +
-  geom_smooth(span = 0.75, degree = 1, size = 1
-              , se = FALSE, colour = myPalContrasts[2]) +
-  geom_vline(x = 7.8, linetype = "dashed", colour = myPal[3]) +
+  geom_smooth(method = "loess", se = FALSE
+              , method.args = list(span = 0.75
+                                   , degree = 1)
+              , size = 1
+              , colour = myPalContrasts[2]) +
+  geom_vline(xintercept = 8, linetype = "dashed", colour = myPal[3]) +
   labs(list(title = "Effect of the isolated Certainty - focus on Group B"
             , x = "Certainty", y = "On Target %")) +
   theme_bw() + myGgThemeSilentX
@@ -185,8 +203,11 @@ gclus <- ggplot(data = subset(raw.data, Group != "A" & clusterGroup != "outlier"
                       , size = Quota)) +
   xlim(4.2, 11.8) +
   geom_point(alpha = I(0.75)) +
-  geom_smooth(span = 0.8, degree = 1, size = 1, se = FALSE) +
-  geom_vline(x = 7.8, linetype = "dashed", colour = myPal[3]) +
+  geom_smooth(method = "loess", se = FALSE
+              , method.args = list(span = 0.8
+                                   , degree = 1)
+              , size = 1) +
+  geom_vline(xintercept = 8, linetype = "dashed", colour = myPal[3]) +
   scale_colour_manual(values = myPalContrasts[c(7,3,4)]) +
   labs(list(title = "Effect of the isolated Certainty - focus on Group B clusters"
             , x = "Certainty", y = "On Target %")) +
@@ -229,13 +250,29 @@ bwplot(mvar_f~OnTarget | clusterGroup, data = raw.data %>%
       })
 
 ## ---- bwplot_compare_analysis ----
-QuotaBands <- equal.count(KQuota, number = 8)
-bwplot(mvar_f~OnTarget | QuotaBands, data = raw.data %>%
-         filter(Group == "A")
-       , index.cond = list(c(3,2,1))
+QuotaRangesA <- matrix(NA, nrow = 3, ncol = 2)
+QuotaRangesA[1,] <- range(KQuota[clusterGroupA == "cluster1A"])/max(KQuota) #[KQuota < max(KQuota[Group =="B"])])
+QuotaRangesA[2,] <- range(KQuota[clusterGroupA == "cluster2A"])/max(KQuota) #[KQuota < max(KQuota[Group =="B"])])
+QuotaRangesA[3,] <- range(KQuota[clusterGroupA == "cluster3A"])/max(KQuota) #[KQuota < max(KQuota[Group =="B"])])
+#QuotaRangesA[,1] <- QuotaRanges[,1]-1
+bwplot(mvar_f~OnTarget | clusterGroupA, data = raw.data %>%
+         filter(Group == "A" & clusterGroupA != "outlier")
        , box.ratio = 2
        , par.settings = MyLatticeTheme
-       , strip = MyLatticeStrip
+       , strip = function(which.given, which.panel, factor.levels, ...) {
+         panel.rect(0, 0, 1, 1
+                    , col = myPal.range(100)[3]
+                    , border = myPal[2])
+         panel.rect(QuotaRangesA[which.panel, 1]+0.05, 0.05, QuotaRangesA[which.panel, 2], 0.95
+                    , col = myPal.range(100)[12]
+                    , border = "transparent")
+         panel.text(x = QuotaRangesA[which.panel, 1]/2 + QuotaRangesA[which.panel, 2]/2, y = 0.5
+                    , col = myPalDark[2]
+                    , lab = paste("Quota range", factor.levels[which.panel[which.given]]))
+         panel.text(x = 1, y = 0.5, pos = 2
+                    , col = myPalDark[2]
+                    , lab = factor.levels[which.panel[which.given]])
+       }
        , layout = c(1,3)
        , scales = list(relation = "free")
        , xlab = "To target %"
