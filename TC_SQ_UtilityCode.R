@@ -18,14 +18,22 @@ attach(raw.data)
 mn_Quo_P <- mean(KQuota)
 mn_Sal_P <- mean(KSales)
 mn_Tar_P <- mean(OnTarget)
+md_Quo_P <- median(KQuota)
+mn_Quo_Met_P <- tapply(KQuota, MetTarget, mean)
 # Grp A
 mn_Quo_A <- mean(KQuota[Group == "A"])
 mn_Sal_A <- mean(KSales[Group == "A"])
 mn_Tar_A <- mean(OnTarget[Group == "A"])
+md_Quo_A <- median(KQuota[Group == "A"])
+mn_Quo_Met_A <- tapply(KQuota[Group == "A"], MetTarget[Group == "A"], mean)
 # Grp B
 mn_Quo_B <- mean(KQuota[Group == "B"])
 mn_Sal_B <- mean(KSales[Group == "B"])
 mn_Tar_B <- mean(OnTarget[Group == "B"])
+md_Quo_B <- median(KQuota[Group == "B"])
+mn_Quo_Met_B <- tapply(KQuota[Group == "B"], MetTarget[Group == "B"], mean)
+
+mns <- round(matrix(c(mn_Quo_Met_A, mn_Quo_Met_B),2,2),3)
 # St Devs
 # Pop
 sd_Quo_P <- sd(KQuota)
@@ -44,7 +52,16 @@ sd_Tar_B <- sd(OnTarget[Group == "B"])
 raw.data$Sales_C <- KSales - ifelse(Group == "A", mn_Sal_A, mn_Sal_B)
 raw.data$Quota_C <- KQuota - ifelse(Group == "A", mn_Quo_A, mn_Quo_B)
 raw.data$OnTarget_C <- OnTarget - ifelse(Group == "A", mn_Tar_A, mn_Tar_B)
+
+raw.data$Quota_Size <- rep(NA, n)
+raw.data$Quota_Size[Group == "A"] <- ifelse(KQuota[Group == "A"] > median(md_Quo_A), "High", "Low")
+raw.data$Quota_Size[Group == "B"] <- ifelse(KQuota[Group == "B"] > median(md_Quo_B), "High", "Low")
 attach(raw.data)
+
+## ---- odds_ratio ----
+QuotaTarget <- with(raw.data, table(Quota_Size, MetTarget, Group))
+QT.OR <- loddsratio(QuotaTarget, log = FALSE)
+coef(QT.OR)
 
 ## ---- group_B_cluster_params ----
 lowOutlierBoundary <- -25
@@ -80,73 +97,11 @@ raw.data$clusterGroup <- ifelse(Group == "A", "GroupA", ifelse(cluster1, "cluste
 raw.data$clusterGroupA <- ifelse(Group == "B", "GroupB", ifelse(cluster1A, "cluster1A", ifelse(cluster2A, "cluster2A", ifelse(cluster3A, "cluster3A", "outlier"))))
 attach(raw.data)
 
-## ---- group_B_cluster_analysis ----
-basicClustAnal <- data.frame(
-    means = 
-    c(mean(OnTarget[cluster1])
-     , mean(OnTarget[cluster2])
-     , mean(OnTarget[cluster3]))
-   , members =
-    c(sum(cluster1)
-    , sum(cluster2)
-    , sum(cluster3))
-   , row.names = 
-    c("cluster1"
-    , "cluster2"
-    , "cluster3"))
-kable(basicClustAnal)
-
 ## ---- basic_lm ----
 lm1 <- lm(Sales_C ~ Group * Quota_C -1)
 raw.data$predict.lm1 <- lm1$fitted.values
 attach(raw.data)
 round(coef(lm1),4)
-(list(root.mean.squared.error = sqrt(mean((Sales_C - lm1$fitted.values)^2))
-      , median.absolute.deviation = abs(median(Sales_C - lm1$fitted.values)))
-)
-
-## ---- missing_var_from_variance ----
-set.seed(103)
-k <- 20
-wndws <- cbind(lwr = 1:(n-k+1), idx = floor(k/2):(n-floor(k/2)), upr = k:n)
-
-rsd <- as.numeric(rep(NA, n))
-for (i in 1:dim(wndws)[1]) {
-  rsd[wndws[i,"idx"]] <-  sd(raw.data$OnTarget[order(raw.data$Quota, decreasing = FALSE)][wndws[i,"lwr"]:wndws[i,"upr"]])
-}
-# bootstrap missing rolling window ends
-missing <- matrix(nrow = 2, ncol = 3)
-missing[1,] <- c(1
-                 , wndws[1,"idx"]-1
-                 , length(1:(wndws[1,"idx"]-1))
-)
-missing[2,] <- c(wndws[nrow(wndws)-floor(k/2),"idx"]+floor(k/2)+1
-                 , n
-                 , length((wndws[nrow(wndws)-floor(k/2),"idx"]+floor(k/2)+1):n)
-)
-# lower end
-rsd[missing[1,1]:missing[1,2]] <- sample(rsd[(missing[1,2]+1):(missing[1,2]+1+k)], missing[1,3], replace = TRUE)
-# upper end
-rsd[missing[2,1]:missing[2,2]] <- sample(rsd[(missing[2,1]-1):(missing[2,1]-1-k)], missing[2,3], replace = TRUE)
-
-rsd <- cbind(rsd, oOrsd = 1/rsd * 100, id = order(Quota))
-raw.data$rollingSD <- rsd[order(rsd[,"id"]),"rsd"]
-raw.data$oOrollingSD <- rsd[order(rsd[,"id"]),"oOrsd"]
-raw.data$mvar_f <- cut(rsd[order(rsd[,"id"]),"oOrsd"]
-                       , c(0, mvarBoundary, max(rsd[order(rsd[,"id"]),"oOrsd"]))
-                       , labels = c("low", "high"))
-attach(raw.data)
-
-## ---- mvar_lm ----
-lm.mvar <- lm(Sales_C~Group * oOrollingSD + Quota_C * oOrollingSD -1)
-raw.data$predict.lm.mvar <- lm.mvar$fitted.values
-
-attach(raw.data)
-round(coef(lm.mvar),4)
-(list(root.mean.squared.error = sqrt(mean((Sales_C - lm.mvar$fitted.values)^2))
-      ,absolute.median.deviation = abs(median(Sales_C - lm.mvar$fitted.values))
-      ))
-anova(lm1, lm.mvar)
 
 ## ---- Statistics ----
 head(select(raw.data, Sales, Quota, Attainment, OnTarget, MetTarget, Group))

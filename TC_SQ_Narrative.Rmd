@@ -1,0 +1,202 @@
+```{r prologue, include=FALSE}
+library(knitr)
+library(stringr)
+library(readr)
+library(dplyr)
+library(lattice)
+library(ggplot2)
+library(vcd)
+
+knitr::opts_chunk$set(warning = FALSE
+                      , message = FALSE
+                      , echo = FALSE
+                      )
+
+knitr::opts_template$set(
+  fig.wide = list(fig.height = 4.5, fig.width = 8, fig.align='center')
+  , fig.wideX = list(fig.height = 3, fig.width = 9, fig.align='center')
+  , fig.relaxed = list(fig.height = 6, fig.width = 8, fig.align='center')
+  , fig.tile = list(fig.height = 3, fig.width = 3, fig.align='center')
+)
+
+par(mar = c(4,3,3,1))
+```
+
+```{r source_external_code_chunks}
+read_chunk("TC_SQ_UtilityCode.R")
+read_chunk("TC_SQ_Plots.R")
+source("https://raw.githubusercontent.com/julianhatwell/R_Themes/master/TC_Theme.R")
+```
+
+```{r Initial_Load}
+```
+# Investigation of fairness in sales quota setting  
+
+#####Julian Hatwell
+#####`r format(Sys.time(), "%b %Y")`
+## Introduction  
+
+This report looks at the available data for annual sales for one sales department and seeks to gain assurance that quotas have been set fairly. The company, department and individuals remain anonymous.
+
+The specific question for this investigation is this; Is there any evidence of some kind of bias in the quota setting process? It possible that a group or some individuals are given lower quotas in order to help them meet their targets?
+
+## Executive Summary
+
+Quota setting is quite accurate at high volume / high sales value. However, the outcomes become much more variable in the low value region, specifically for the Group B sales agents. This implies that the quota originally set for these agents was not a good predictor of their outcome. 
+
+The working theory for this is that lower quotas are set where a sales agent is dealing with a tougher customer segment. The person responsible for setting the quotas has the task of balancing the quirks of each customer segment with what they consider to be an achievable target. This process breaks down and becomes unreliable for the more difficult customer group. There is likely also to be uncertainty introduced simply by the lower volumes of sales coming in at this level.
+
+The data are very limited in scope. No conclusions can be drawn about deliberate bias or any other underlying cause because there simply isn't enough information available.
+
+This summary concludes with a recommendation to perform a wholesale review of the quota setting process. For Group B, the current process is failing. It is highly variable and therefore quotas are not givng a good prediction of outcome. It is also undercooked at the low end. Conversely, the process for Group A is altogether too linear and suggests that quotas could be raised to yield higher sales. An upper limit is yet to be found and can perhaps be approached while still maintaining fairness to the sales agents but implementing more stretch targets or profit sharing mechanisms. 
+
+One minor action point is noted in the report detail.
+
+## Report Detail
+
+Within this sales department, quotas are set for each sales agent. An agent may be a member of group A or group B which denotes a specific customer account profile. Group B are set much lower quotas on average, reflecting a difference in difficulty to sell to group B customers.
+
+This report begins by examining overall performance based on meeting target quotas, and whether there was any effect on having a high or low quota compared to the group median.
+
+If there are significant differences between the two groups, and if quota setting has a part to play, it should be visible in the odds ratios:
+
+$$\frac{Quota Ratio}{Made Target Ratio} = \frac{High Quota/Low Quota}{Didn't Make Target/Made Target}$$
+
+```{r odds_ratio}
+```
+
+Group A seems to be very even. The odds of missing targets when given a higher than median quota are `r round(coef(loddsratio(QuotaTarget, log = FALSE))[1],2)` or in terms of a probability, that's a `r round( coef(loddsratio(QuotaTarget, log = FALSE))[1]/(1 + coef(loddsratio(QuotaTarget, log = FALSE))[1]) * 100, 0)`% chance.
+
+On the other hand, Group B do seem to show some trend. The odds of missing targets when given a higher than median quota are almost double those of Group A. Specifically they are determined to be `r round(coef(loddsratio(QuotaTarget, log = FALSE))[2],2)` or a `r round( coef(loddsratio(QuotaTarget, log = FALSE))[2]/(1 + coef(loddsratio(QuotaTarget, log = FALSE))[2]) * 100, 0)`% chance.
+
+This can be visualised with a fourfold plot.
+
+```{r fourfold_MetTarget, opts.label='fig.relaxed'}
+```
+
+For those who made their targets compared to those who didn't, it's also useful to know how much their quotas were influential:
+
+```{r boxplot_MetTarget, opts.label='fig.wide'}
+```
+
+The inner spots showing the medians and the lines joining the group means show that as a group, A's ability to meet their target is not strongly influenced by the magnitude of the quota. This in itself is quite interesting and slightly non-intuitive. Can the quota be set higher and still achieve the same parity? What incentives are in place to go above and beyond quota? 
+
+The difference in averages between those who made target and those who didn't  for Group A is `r (mns[1,1]-mns[2,1]) * 1000` units, whilst it's `r (mns[1,2]-mns[2,2]) * 1000` for Group B. 
+
+Group B appear to do better if set a lower target. On the surface this is more intuitive, but presumably the sales department don't want to make it too easy. At the same time, the question arises, why is it different between the two groups?
+
+It's possible to quantify and compare the spread of performance to target. This density plot shows where most sales agents fall in terms of their final outcome against target %:
+
+```{r group_B_cluster_params}
+```
+
+```{r densityplot_MetTarget, opts.label='fig.wide'}
+```
+
+Group A shows a classic bell curve centred around their mean attainment to target of `r round(mn_Tar_A,2)` percentage points.  
+
+Group B show a definite skew, and there's some evidence of 3 discrete peaks (although this could easily be cause by sparsity in the data). Arbitrary boundaries are suggested by the vertical lines. There are also one or two extreme outliers at either end with \(\pm\) 50% from target. 
+
+This helps to visualise the much higher variance for this group's overall performance, despite a much narrower range of quotas (see the appendices for the data summaries). 
+
+Next, a look at the relationship between Quota and Sales:
+
+```{r ggplot_Sales_depends_Quota, opts.label='fig.wide'}
+```
+
+Immediately obvious is the strong, near unity linear relationship between Sales and Quota. This appears to be true for both groups, though a small difference can be seen with Group B not doing quite so well. In units of 1,000 this difference could translate to a significant amount in revenue.
+
+See the appendix for a discussion of the problem associated with this graph.
+
+A linear model is fit in order to better understand the relationships between sales, quota and group:
+
+```{r basic_lm}
+```
+
+The results are simple and interpretable. Both groups intersect at exactly the average sales given the average quota. Sales has a close to 1:1 relationship with quota for group A, but for group B this is `r round(coef(lm1)[3],4)` + `r round(coef(lm1)[4],4)` = `r round(coef(lm1)[3],4) + round(coef(lm1)[4],4)`. In other words, Group B makes `r round((coef(lm1)[3] + coef(lm1)[4]) * 100,0)`% of unit sales per unit quota compared to Group A.
+
+This is a crude model from simple data. It doesn't reveal anything about what's happening within group B. The next plot zooms in on the difference between groups A and B.
+
+````{r ggplot_OnTarget_depends_Quota, opts.label='fig.wide'}
+```
+
+The outcome to target is the distance above or below the quota, regardless of actual sales values. Group A, with sales in parity with quota have a line that runs  horizontal along point zero. Group B do better if given a low quota and worse otherwise.
+
+Detail has been added to highlight a cluster of Group B individuals who out performed their initially low quota by around 25 percentage points.
+
+Furthermore, there is a heteroscedastic trend. This has been highlighted by the addition of dashed lines. This is a trend of the variance (spread of the points) which is very high to the left, much lower to the right. It indicates that the expectation of the outcomes at the time the quotas were set was much less reliable for the lower range of quotas. There was more certainty about the outcome at the high value end.  
+
+The true reasons for this are unknowable given the very limited information. What it indicates is that there is information missing from the model; Variables that have not been collected or provided for the analysis.
+
+The effect of this missing information can be modelled by the addition of a nonparametric smoother, such as a loess line.
+
+```{r ggplot_OnTarget_Loess, opts.label='fig.wide'}
+```
+
+It's now very clear that there is a specific relationship between Quota and On Target attainment for Group B that doesn't exist for Group A. 
+
+Confidence intervals have been added to show the effect of sparse data on the trendlines and also to highlight another problem. Namely, the presence of just a couple of Group B individuals well outside of the the range of most of their Group mates. 
+
+__Action Point__ Review the Group B designation for the individual with the highest quota in this Group. They are far outside the normal range and one has to question the classification.
+
+The members of Group B who have the lowest quotas have an increasing ability to exceed their quotas. There is quite a cloud of points below the line, indicating that it's not a uniform bias, but it's certainly pronounced.
+
+In contrast, the loess line for Group A is exceptionally linear despite this type of model's inherent flexibility.
+
+There could be any number of reasons for these patterns. The Sales manager or VP's responsibility is to mediate an achievable target based on some measure of how easy or difficult a customer segement is.
+
+Intuitively, when it comes to Group B, erring on the side of caution seems a plausible explanation. The VP knows these are really difficult customers and undercooks the quota out of a sense of fairness. Firm negotiation from the sales agents who have to work with these difficult clients is another possibility. Deliberate bias can't be ruled out, but there can be no suggestion of it from the available data.
+
+The investigation concludes with a reminder that the available data are very limited, with only two predictor variables. It can only be offered as a starting point for further investigation at the source.
+
+## Appendices
+#### Data Sample
+
+Note that the data are a census (complete for the population). This means that inferential statistics are not required. Any differences between the two groups' data, however big or small, are real. They can be described without the use of confidence intervals.
+
+The data available are very limited and there are many questions that cannot be answered. This report explains what can be determined based only on the available data.
+
+The data consist of a csv file with 422 rows and 4 columns. The rows represent individual sales agents in the department. The columns are as follows:
+
+1. Group (A or B) - Denotes the sales department sub-group. Each group sells the same products but has a different client profile and different quotas sales quotas.
+2. Sales - The overall sales to date for the year 2015. Units not given.
+3. Quota - The overall sales to date for the year 2015. Units not given. Assumed to be same units as sales.
+4. Attainment - ratio of \(\frac{Sales}{Quota}\) expressed as a percentage.
+
+For the purpose of convenience, the following columns have been added:
+
+5. KSales - \(\frac{Sales}{1000}\)  
+
+6. KQuota - \(\frac{Quota}{1000}\)  
+
+7. OnTarget - \(\frac{(Sales-Quota)}{Quota}\)  
+Centres the Attainment on 100%. The new values is percentage points above or below target.
+
+8. MetTarget - TRUE if OnTarget \(>= 0\), otherwise FALSE
+
+The following listing shows the top 6 rows of the data file followed by a standard summary.
+
+```{r Statistics}
+```
+
+#### Linear trend between Quota and Sales
+
+The strong linearity is a non-intuitive observation. Consider that if the simplest model were true, one could simply increase the quotas and expect increased sales up to infinity. Sales must reach a limit at some point no matter what quota is set. Some kind of nonlinear relationship is expected, such as the one below (for illustrative purposes only).
+
+```{r expected_nonlinear_increase, opts.label='fig.wideX'}
+```
+
+It has to be assumed that such an underlying tendency is being mediated by the person or persons setting the quotas. This could be by means of a formal process or experience and intuition about easier or tougher customer groups. No specific information is available about the quota setting process but the remainder of the report makes this assumption: 
+
+The sales process can modeled as a large binomial; A collection of trials (opportunities, customers) with binary outcomes (sold/not sold) with a certain probability (conversion rate).
+
+The number of opportunities can be variable in this setting and the conversion rate may depend on customer segment.
+
+A low quota (low number of leads/opportunities) would be given where the customer segment take a lot of nurturing with more time spent individually on each. A high quota could be given where the expected conversion rates are high.
+
+The VP or manager in charge of sales has to strike a balance based on these (and possibly other) input parameters to give each sales agent a fair chance of meeting their target. This could results in a highly linear outcome if the process is done accurately.
+
+The following graph, for illustration only, shows the effect of increasing the number of binomial trials. With a constant conversion rate of 5%. Each sales agent would be given Quota * 20 opportunities to work on:
+
+```{r mediated_binomial_sales, opts.label='fig.wideX'}
+```
