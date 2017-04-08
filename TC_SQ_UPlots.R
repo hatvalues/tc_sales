@@ -17,13 +17,17 @@ bwplot(KQuota ~ factor(MetTarget) | Group
 
 # ---- densityplot_MetTarget ---
 densityplot(~OnTarget, groups = Group
-            , bw = 3
+            , bw = 5
             , kernel = "gaussian"
             , scales = list(tck = c(1, 0))
             , par.settings = MyLatticeTheme
             , strip = MyLatticeStrip
             , xlab = "To target %"
             , main = "Group performance to targets"
+            , panel = function(x, ...) {
+              panel.grid(h = -1, v = -1, ...)
+              panel.densityplot(x, ...)
+            }
             , auto.key = list(text = levels(Group), col = myPalDark[c(1,5)]
                               , columns = 2, space = "top"
                               , lines = FALSE)
@@ -54,17 +58,16 @@ qq(Group~OnTarget
 )
 
 
-# ---- oddsratioplot ----
+# ---- odds_ratio_plot ----
 plot(QT.OR, confidence = TRUE
      , conf_level = 0.9
      , col = myPalFourFold[3]
      , gp_bars = gpar(fill = myPalFourFold[4], alpha = 0.5)
      , gp_main = gpar(fontsize = 14)
-     , main = "Odds Ratio plot for Quota Size / Met Target by Group"
-     , ylab ="Odds Ratio"
-     , ylim = c(0, 1))
+     , main = "Log Odds Ratio for\nQuota Size and Made Target\nby Group"
+     , sub = "90% Confidence of association for Group B"
+     , ylab ="Odds Ratio")
 
-# ---- fourfold_MetTarget ----
 fourfold(QuotaTarget, conf_level = 0.9
          , color = myPalFourFold)
 
@@ -121,6 +124,12 @@ gMVar <- ggplot(data = raw.data, aes(x = KQuota, y = OnTarget
               , method.args = list(span = 0.75
                                    , degree = 1)
               , size = 1.25, alpha = 0.2) +
+  geom_smooth(aes(y = sd_inflation - 37.5), method = "loess"
+              , se = FALSE
+              , method.args = list(span = 0.75
+                                   , degree = 1)
+              , size = 1.25, alpha = 0.2) +
+  geom_text(aes(x=50, y=-35, label = "Contribution to St.Dev (not to scale)")) +
   geom_point(aes(x= 10, y = 25), pch = 1, size = 30, colour = myPal[3]) +
   geom_abline(intercept=35, slope=-(2/5), linetype = "dashed", colour = myPal[3]) +
   geom_abline(intercept=-32, slope=1/3, linetype = "dashed", colour = myPal[3]) +
@@ -130,25 +139,10 @@ gMVar <- ggplot(data = raw.data, aes(x = KQuota, y = OnTarget
   theme_bw() + myGgThemeSilentY
 gMVar
 
-## ---- ggplot_varInfluence_Loess ----
-gMVar <- ggplot(data = raw.data, aes(x = KQuota, y = OnTarget
-                                     , colour = Group)) +
-  geom_point(alpha = I(0.5)) +
-  geom_smooth(aes(y = sd_inflation), method = "loess"
-              , se = FALSE
-              , method.args = list(span = 0.75
-                                   , degree = 1)
-              , size = 1.25, alpha = 0.2) +
-  scale_colour_manual(values = myPalContrasts) +
-  labs(list(title = "Same as above with loess on contribution to st.dev"
-            , x = "Quota (1000's)", y = "On Target %")) +
-  theme_bw() + myGgThemeSilentY
-gMVar
-
 ## ---- expected_nonlinear_increase ----
 set.seed(1004)
 x <- KQuota #seq(5, 60, length.out = 422)
-y <- (x/(1+x) + rnorm(length(x), sd = 0.0025)) * 40
+y <- (x/(1+x) + rnorm(length(x), sd = 0.0045)) * 40
 xyplot(y~x, alpha = 0.6
        , scales = list(tck = c(1, 0))
        , par.settings = MyLatticeTheme
@@ -167,7 +161,7 @@ xyplot(y~x, alpha = 0.6
 set.seed(1004)
 x <- KQuota
 y <- (rbinom(422, round(Quota,0), p = 0.05) * 20 + 
-        rnorm(422, sd = 2500))/1000
+        rnorm(422, sd = 3000))/1000
 xyplot(y~x, alpha = 0.6
        , scales = list(tck = c(1, 0))
        , par.settings = MyLatticeTheme

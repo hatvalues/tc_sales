@@ -19,18 +19,21 @@ mn_Quo_P <- mean(KQuota)
 mn_Sal_P <- mean(KSales)
 mn_Tar_P <- mean(OnTarget)
 md_Quo_P <- median(KQuota)
+qt_Tar_P <- quantile(OnTarget)
 mn_Quo_Met_P <- tapply(KQuota, MetTarget, mean)
 # Grp A
 mn_Quo_A <- mean(KQuota[Group == "A"])
 mn_Sal_A <- mean(KSales[Group == "A"])
 mn_Tar_A <- mean(OnTarget[Group == "A"])
 md_Quo_A <- median(KQuota[Group == "A"])
+qt_Tar_A <- quantile(OnTarget[Group == "A"])
 mn_Quo_Met_A <- tapply(KQuota[Group == "A"], MetTarget[Group == "A"], mean)
 # Grp B
 mn_Quo_B <- mean(KQuota[Group == "B"])
 mn_Sal_B <- mean(KSales[Group == "B"])
 mn_Tar_B <- mean(OnTarget[Group == "B"])
 md_Quo_B <- median(KQuota[Group == "B"])
+qt_Tar_B <- quantile(OnTarget[Group == "B"])
 mn_Quo_Met_B <- tapply(KQuota[Group == "B"], MetTarget[Group == "B"], mean)
 
 mns <- round(matrix(c(mn_Quo_Met_A, mn_Quo_Met_B),2,2),3)
@@ -78,8 +81,9 @@ cat("Kurtosis Group B")
 kurtosis(Quota_CP[Group == "B"])
 
 ## ---- odds_ratio ----
+cat("Log Odds Ratio for Quota Size and Made Target by Group")
 QuotaTarget <- with(raw.data, table(Quota_Size, MetTarget, Group))
-QT.OR <- loddsratio(QuotaTarget, log = FALSE)
+QT.OR <- loddsratio(QuotaTarget)
 coef(QT.OR)
 
 ## ---- basic_lm ----
@@ -95,7 +99,7 @@ influential <- raw.data[as.numeric(
       sort(cooks.distance(lm1)[Group == "B"]
            , decreasing = TRUE), 2))), ]
 s.lm1 <- summary(lm1)
-cat("OLS Linear Model")
+cat("OLS Linear Model\nQuota_CP = Centred for Population")
 round(coef(s.lm1), 4)
 cat("R-Squared", s.lm1$r.squared, "\n"
     , "Model explains" , round(s.lm1$r.squared, 2) * 100
@@ -128,31 +132,33 @@ attach(raw.data)
 ## ---- Statistics ----
 head(dplyr::select(raw.data, Sales, Quota, Attainment, OnTarget, MetTarget, Group))
 summary(dplyr::select(raw.data, Sales, Quota, Attainment, OnTarget, MetTarget, Group))
-# means
+
 kable(data.frame(
   Population_mean_KQuota = mn_Quo_P
   , Population_mean_KSales = mn_Sal_P
   , Population_mean_OnTarget = mn_Tar_P
 ))
 kable(data.frame(
+  Population_StDev_KQuota = sd_Quo_P
+  , Population_StDev_KSales = sd_Sal_P
+  , Population_StDev_OnTarget = sd_Tar_P
+))
+
+kable(data.frame(
   GroupA_mean_KQuota = mn_Quo_A
   , GroupA_mean_KSales = mn_Sal_A
   , GroupA_mean_OnTarget = mn_Tar_A
 ))
 kable(data.frame(
-  GroupB_mean_KQuota = mn_Quo_B
-  , GroupB_mean_KSales = mn_Sal_B
-  , GroupB_mean_OnTarget = mn_Tar_B
-))
-kable(data.frame(
-  Population_StDev_KQuota = sd_Quo_P
-  , Population_StDev_KSales = sd_Sal_P
-  , Population_StDev_OnTarget = sd_Tar_P
-))
-kable(data.frame(
   GroupA_StDev_KQuota = sd_Quo_A
   , GroupA_StDev_KSales = sd_Sal_A
   , GroupA_StDev_OnTarget = sd_Tar_A
+))
+
+kable(data.frame(
+  GroupB_mean_KQuota = mn_Quo_B
+  , GroupB_mean_KSales = mn_Sal_B
+  , GroupB_mean_OnTarget = mn_Tar_B
 ))
 kable(data.frame(
   GroupB_StDev_KQuota = sd_Quo_B
@@ -170,3 +176,4 @@ LRstats(lm1, lm2, lm3)
 raw.data$CRate <- (Sales/(Quota * 20))
 glm1 <- glm(CRate ~ Group, family = binomial, data = raw.data, weights = Quota)
 glm2 <- glm(CRate ~ Group + Quota, data = raw.data, family = binomial)
+
