@@ -1,0 +1,314 @@
+```{r prologue, include=FALSE}
+library(knitr)
+library(readr)
+library(dplyr)
+library(lattice)
+library(ggplot2)
+library(car)
+library(faraway)
+library(lmtest)
+library(gridExtra)
+
+knitr::opts_chunk$set(warning = FALSE
+                      , message = FALSE
+                      , echo = FALSE
+                      )
+
+knitr::opts_template$set(
+  fig.wide = list(fig.height = 4.5, fig.width = 8, fig.align='center')
+  , fig.wideX = list(fig.height = 3, fig.width = 9, fig.align='center')
+  , fig.relaxed = list(fig.height = 6, fig.width = 8, fig.align='center')
+  , fig.tile = list(fig.height = 3, fig.width = 3, fig.align='center')
+)
+
+source("C:\\Users\\Crutt\\Documents\\GitHub\\R_Themes\\TC_Theme.R")
+
+par(mar = c(4,3,3,1))
+```
+
+```{r Initial_Load}
+link <- "C:\\Users\\Crutt\\Documents\\GitHub\\TC_SalesQuotas\\TC_SalesQuota.csv"
+raw.data <- read_csv(link) %>%
+  transmute(Group = as.factor(Group)
+            , KSales = Sales/1000
+            , KQuota = Quota/1000
+            , PCtoTarget = Attainment
+            , MetTarget = Attainment >= 100)
+n = 100
+
+get.samp.data <- function(m) {
+  rbind(
+  some(raw.data %>% filter(Group == "A"), n=n/2)
+  , some(raw.data %>% filter(Group == "B"), n=n/2))[sample(m),]
+}
+
+get.col <- function(colnm, grp) {
+  as.matrix(samp.data %>% filter(Group == grp) %>% dplyr::select(colnm))
+}
+
+set.seed(12321)
+samp.data <- get.samp.data(n)
+```
+# Statistical Analysis of Sales Data
+
+#####Julian Hatwell
+#####`r format(Sys.time(), "%b %Y")`
+## Introduction  
+In this report, we conduct a statistical analysis of a limited sales data set.  
+
+Within this sales department, sales agents may be a member of group A or group B. The group membership determines the customer segment that the sales agent will work on. Group B are set much lower quotas (sales targets) on average, reflecting a difference in difficulty to sell to group B customers.  
+
+## Brief
+To determine if there is any difference between group performance, what (if any) anomalies are present, and to make any recommendations based on the findings.
+
+## Methodology
+We will perform standard statistical analyses, such as univariate distributions and linear models on a random sample of 50 members from each sales team, selected by payroll number lottery.
+
+### Descriptive Statistics
+The following listing shows the top 6 rows of the data file followed by a standard summary for the whole sample, and separately by group.
+
+```{r DescrStats, opts.label='fig.wide'}
+head(samp.data)
+summary(samp.data)
+summary(samp.data %>% filter(Group == "A"))
+summary(samp.data %>% filter(Group == "B"))
+cat("Correlation test, all:")
+with(samp.data, cor.test(KQuota, KSales))
+cat("Correlation test, Group A:")
+with(samp.data %>% filter(Group == "A"), cor.test(KQuota, KSales))
+cat("Correlation test, Group B:")
+with(samp.data %>% filter(Group == "B"), cor.test(KQuota, KSales))
+xyplot(KSales~KQuota, data=samp.data
+       , groups = Group
+       , par.settings = MyLatticeTheme)
+```
+
+#### Remarks
+As expected, given the brief, Group B has lower Quota and Sales than Group A, but the differences in mean attainment appear to be very small. However, Group B have much greater variance in attainment (evidence in the range and IQR).
+
+There is a **very strong** correlation between sales and quota, as one one expect if quota is set according to attainable targets. The correlation for Group B is slightly less (this is expected, given the higher variance) than for Group A and the sample as a whole, but is still a very strong effect.
+
+### Outlier Detection
+
+```{r outliers, opts.label='fig.wideX'}
+grpA <- get.col("PCtoTarget", "A")
+grpAstandard <- (grpA - mean(grpA)) / sd(grpA)
+grpB <- get.col("PCtoTarget", "B")
+grpBstandard <- (grpB - mean(grpB)) / sd(grpB)
+
+grid.arrange(
+densityplot(~(grpA - mean(grpA)) / sd(grpA)
+            , col = myPalDark[1]
+            , scales = list(tck = c(1, 0))
+            , par.settings = MyLatticeTheme
+            , strip = MyLatticeStrip
+            , main = "Group A: Standard Units to Target"
+            , xlab = ""
+            )
+, densityplot(~grpBstandard
+            , col = myPalDark[5]
+            , scales = list(tck = c(1, 0))
+            , par.settings = MyLatticeTheme
+            , strip = MyLatticeStrip
+            , main = "Group B: Standard Units to Target"
+            , xlab = ""
+            )
+, nrow = 1
+)
+
+smallest_and_largest <- function(x) {
+  paste(
+    paste(as.character(round(head(sort(x),3),4))
+    , collapse = " , ")
+    , ", ... ,"
+    , paste(as.character(round(tail(sort(x),3),4))
+    , collapse = " , "))
+}
+
+cat("Smallest and Largest: Group A")
+smallest_and_largest(grpAstandard)
+cat("Smallest and Largest: Group B")
+smallest_and_largest(grpBstandard)
+```
+
+#### Remarks
+Although there are one or two individuals that are quite far from the main density of points in each group, at <3 standard units distance these are not considered extreme outliers.
+
+### Differences in Performance Between Groups
+A Student's t-test, allowing for unequal variances, will show whether there is a significant difference in the mean % variance (PCtoTarget).
+
+```{r ttesttarget}
+shapiro.test(get.col("PCtoTarget", "A"))
+shapiro.test(get.col("PCtoTarget", "B"))
+t.test(get.col("PCtoTarget", "A")
+       , get.col("PCtoTarget", "B")
+       , var.equal = FALSE)
+wilcox.test(get.col("PCtoTarget", "A")
+       , get.col("PCtoTarget", "B"))
+```
+
+#### Remarks
+The confidence interval of the t-test contains zero, so we cannot say that there is a significant difference in % variance to target between the groups. However, the Shapiro-Wilk test reveals that Group B is not normally distributed. The non-parametric Wilcoxon signed-rank test is run and the result of this is also non-significant.
+
+Overlaying the density plot of the two groups provides a useful visualisation if these results. Our attention is drawn to Group B, which shows very noticeable positive skew with most of the density centred around $\approx$15% below target. There is also a small cluster of Group B who just made it "over the line." The very high variance (spread, range) is also notable compared to group A. 
+
+```{r densityplot, opts.label='fig.wideX'}
+densityplot(~PCtoTarget, data = samp.data
+            , groups = Group
+            , bw = 5
+            , kernel = "gaussian"
+            , scales = list(tck = c(1, 0))
+            , par.settings = MyLatticeTheme
+            , strip = MyLatticeStrip
+            , xlab = "% to Target"
+            , main = "Group performance to targets"
+            , panel = function(x, ...) {
+              panel.grid(h = -1, v = -1, ...)
+              panel.densityplot(x, ...)
+            }
+            , auto.key = list(text = levels(samp.data$Group)
+                              , col = myPalDark[c(1,5)]
+                              , columns = 2
+                              , space = "top"
+                              , lines = FALSE)
+)
+```
+
+### Differences in Performance Within Groups
+For those who made their targets compared to those who didn't, it's useful to know how much their quotas were influential. A boxplot helps to visualise this for the two groups:
+
+```{r boxplot_MetTarget, opts.label='fig.wideX'}
+mns <- round(tapply(samp.data$KQuota, list(samp.data$Group, samp.data$MetTarget), mean),2)
+bwplot(KQuota ~ factor(MetTarget) | Group
+       , data = samp.data
+       , scales = list(format = list(digits = 10))
+       , par.settings = MyLatticeTheme
+       , strip = MyLatticeStrip
+       , xlab = "Met target"
+       , ylab = "Quota (1000's units)"
+       , main = "Group performance to targets"
+       , panel = function(x, y, ...) {
+         panel.bwplot(x, y, ...)
+         panel.average(x, y
+                       , lwd = 2
+                       , lty = 1
+                       , col = myPalDark[1]
+                       , ...)
+         panel.text(1:2
+                    , mns[which.packet(),] + 5
+                    , mns[which.packet(),]
+                    , col = myPalDark[1]
+                    , cex = 1.1
+                    , fontface = "bold"
+                    , ...)
+       }
+)
+```
+
+A Shapiro-Wilk test reveals that one of the sub-groups within each group is not normally distributed. This is likely to be as a result of outliers. The Wilcoxon test is used again here:
+
+```{r wlxForQuotaTarget}
+t.test(get.col("KQuota","A")[get.col("MetTarget", "A")]
+            , get.col("KQuota","A")[!get.col("MetTarget", "A")])
+
+wilcox.test(get.col("KQuota","A")[get.col("MetTarget", "A")]
+            , get.col("KQuota","A")[!get.col("MetTarget", "A")])
+
+t.test(get.col("KQuota","B")[get.col("MetTarget", "B")]
+            , get.col("KQuota","B")[!get.col("MetTarget", "B")])
+
+wilcox.test(get.col("KQuota","B")[get.col("MetTarget", "B")]
+            , get.col("KQuota","B")[!get.col("MetTarget", "B")])
+```
+
+#### Remarks
+These results show that there is no significant difference in the Quota rate within Groups, for those who met their targets and those who didn't. In other words, it is safe to say that quotas appear to be fair, with no evidence that lower quotas resulted in better performance. The obvious difference between groups is expected, as per the brief (different customer segments).
+
+### Linear Models
+
+We create two linear models. The first for effect of Quota on Sales. The second linear model adds a term for Group membership.
+
+```{r lmodels}
+lmod1 <- lm(KSales~KQuota, data = samp.data)
+lmod2 <- lm(KSales~KQuota+Group, data = samp.data)
+
+summary(lmod1)
+summary(lmod2)
+```
+
+#### Remarks
+
+The KQuota term is significant in both models, while the Group term appears to be non-significant in the second model. We reject the second model.
+
+### Testing Model Assumptions
+
+We have already determined that there are no extreme outliers that require attention prior to model building. We will now check all linear model assumptions.
+
+```{r modass, opts.label='fig.wide'}
+cat("Visual inspection of residuals:")
+plot(fitted(lmod1), residuals(lmod1)
+     , xlab = "Fitted"
+     , ylab = "Residuals")
+abline(h=0)
+
+cat("Visual check for normally distributed residuals:")
+qqnorm(residuals(lmod1)
+       , ylab="Residuals"
+       , main="")
+qqline(residuals(lmod1))
+
+cat("Check normal distribution of residuals:")
+shapiro.test(residuals(lmod1))
+
+cat("Check for constant variance in the residuals:")
+summary(lm(sqrt(abs(residuals(lmod1))) ~ fitted(lmod1)))
+
+cat("Visual check for autocorrelation in the residuals:")
+n <- length(residuals(lmod1))
+plot(
+  tail(residuals(lmod1), n-1) ~ head(residuals(lmod1), n-1)
+  , xlab = expression(hat(epsilon)[i])
+  , ylab = expression(hat(epsilon)[i + 1])
+)
+abline(h=0, v=0, col=grey(0.75))
+
+cat("Test for autocorrelation in the residuals:")
+dwtest(KSales~KQuota
+       , data = samp.data)
+
+cat("Check for residual outliers:")
+crit_out <- round(qt(0.05/(n*2), n - 1), 4)
+cat(paste("Critical value for residual outliers on this sample is +/-", abs(crit_out)))
+stud <- rstudent(lmod1)
+smallest_and_largest(stud)
+cat("This instance is the largest absolute studentised residual:")
+stud[which.max(abs(stud))]
+
+
+cat("Visual check for high leverage points:")
+hatv <- hatvalues(lmod1)
+crit_hat <- 2 * sum(hatv) / n
+rnms <- rownames(samp.data)
+halfnorm(hatv, 2
+         , labs=rnms
+         , ylab = "leverages")
+
+cat("Check for high leverage points:")
+cat(paste("Leverage larger than", crit_hat, "is high for this sample."))
+tail(sort(hatv[hatv > crit_hat]))
+
+cat("Visual check for high influence points:")
+cook <- cooks.distance(lmod1)
+halfnorm(cook, 2
+         , labs = rnms
+         , ylab = "Cook's Distances")
+plot(lmod1, which = 5)
+```
+
+#### Remarks
+We note that a single residual is large enough to be considered an outlier. However, it is neither a leverage nor an influence point. We also note that the Durbin-Watson test for autocorrelation is significant but we can see no evidence for this in the visual inspection and have double checked our sampling procedures. The linear model is safe to use for explanatory and predictive purposes.
+
+### Qualitative Discussion and Summary
+It is difficult to make any strong recommendations from this data set, which has only a limited set of attributes. It doesn't appear that a lower quota results in a higher overall likelihood to meet target sales. There is a near 1:1 relationship between Quota and Sales; the linear coefficient indacates that every 1000 units of quota increases sales by 1000 $\times$ `r round(coef(lmod1)[2],4)` $=$ `r 1000 * round(coef(lmod1)[2],4)`. We wonder whether this very strong linear correlation is a symptom of the quota setting process, and whether a more dynamic system of basic and stretch targets would yield sales greater than those suggested by this very predictable model.
+
+This is a statistical analysis and is intended to summarise and analyse patterns in the data. We can draw no conclusions about individual cases. We suggest that individuals identified as outliers, making very large variances above or below target be reviewed on a case by case basis.
