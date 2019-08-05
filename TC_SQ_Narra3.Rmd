@@ -1,0 +1,181 @@
+```{r prologue, include=FALSE}
+library(knitr)
+library(readr)
+library(dplyr)
+library(lattice)
+library(ggplot2)
+library(vcd)
+library(MCMCpack)
+library(coda)
+library(gridExtra)
+knitr::opts_chunk$set(warning = FALSE
+                      , message = FALSE
+                      , echo = FALSE
+                      )
+
+knitr::opts_template$set(
+  fig.wide = list(fig.height = 4.5, fig.width = 8, fig.align='center')
+  , fig.wideX = list(fig.height = 3, fig.width = 9, fig.align='center')
+  , fig.relaxed = list(fig.height = 6, fig.width = 8, fig.align='center')
+  , fig.tile = list(fig.height = 3, fig.width = 3, fig.align='center')
+)
+
+source("~/Documents/github/R_Themes/TC_Theme.R")
+
+par(mar = c(4,3,3,1))
+```
+
+```{r Initial_Load}
+link <- "~/Documents/github/TC_SalesQuotas/TC_SalesQuota.csv"
+raw.data <- read_csv(link) %>%
+  transmute(Group = as.factor(Group)
+            , KSales = Sales/1000
+            , KQuota = Quota/1000
+            , MetTarget = Attainment >= 100)
+
+maxb <- max(raw.data$KQuota[raw.data$Group == "B"])
+raw.data[raw.data$Group == "B" & raw.data$KQuota == maxb, "Group"] <- "A"
+
+
+get.col <- function(colnm, grp) {
+  as.matrix(raw.data %>% filter(Group == grp) %>% dplyr::select(colnm))
+}
+set.seed(12321)
+```
+# Statistical Analysis of Sales Data
+
+##### Julian Hatwell
+##### `r format(Sys.time(), "%b %Y")`
+
+## Introduction
+Within the sales department, sales agents may be a member of group A or group B. The group membership determines the customer segment that the sales agent will work on. Group B are set much lower quotas (sales targets) on average, reflecting a difference in difficulty to sell to group B customers.
+
+## Brief
+Determine if there is any difference between group performance, what (if any) anomalies are present, and to make any recommendations based on the findings.
+
+## Methodology
+We will perform basic descriptive statistics on the data set. We will then use Bayesian regression methods to determine whether there is any difference between the goups' performance. Bayesiam methods are preferred for this analysis, because the intention is to estimate the most likely parameter values from a complete census (the entire sales department) rather than making inference to a larger population. Furthermore, checking assumptions and diagnostics for simple Bayesian regression models is much less time consuming.
+
+### Descriptive Statistics
+The following listing shows the top 6 rows of the data file followed by a standard summary for the whole sample, and separately by group.
+
+```{r DescrStats, opts.label='fig.wide'}
+head(raw.data)
+summary(raw.data)
+summary(raw.data %>% filter(Group == "A"))
+summary(raw.data %>% filter(Group == "B"))
+cat("Quota to Sales Correlation")
+with(raw.data, cor(KSales, KQuota))
+xyplot(KSales~KQuota, data=raw.data
+       , groups = Group
+       , par.settings = MyLatticeTheme)
+```
+
+#### Remarks
+As expected, given the brief, Group B has lower Quota and Sales than Group A. There appears to be a very strong correlation between Quota and Sales. This correlation suggests that whoever is setting the quota (targets) at the start of the sales year has an uncanny grasp of the annual sales process.
+
+### Differences in Performance Within Groups
+For those who made their targets compared to those who didn't, it's useful to know how much their quotas were influential. A boxplot helps to visualise this for the two groups:
+
+```{r boxplot_MetTarget, opts.label='fig.wideX'}
+mns <- round(tapply(raw.data$KQuota, list(raw.data$Group, raw.data$MetTarget), mean),2)
+bwplot(KQuota ~ factor(MetTarget) | Group
+       , data = raw.data
+       , scales = list(format = list(digits = 10))
+       , par.settings = MyLatticeTheme
+       , strip = MyLatticeStrip
+       , xlab = "Met target"
+       , ylab = "Quota (1000's units)"
+       , main = "Group performance to targets"
+       , panel = function(x, y, ...) {
+         panel.bwplot(x, y, ...)
+         panel.average(x, y
+                       , lwd = 2
+                       , lty = 1
+                       , col = myPalDark[1]
+                       , ...)
+         panel.text(1:2
+                    , mns[which.packet(),] + 5
+                    , mns[which.packet(),]
+                    , col = myPalDark[1]
+                    , cex = 1.1
+                    , fontface = "bold"
+                    , ...)
+       }
+)
+```
+
+```{r wlxForQuotaTarget}
+tta <- t.test(get.col("KQuota","A")[get.col("MetTarget", "A")]
+            , get.col("KQuota","A")[!get.col("MetTarget", "A")])
+
+tta$data.name <- "Group A: Target not Met / Target Met"
+
+ttb <- t.test(get.col("KQuota","B")[get.col("MetTarget", "B")]
+            , get.col("KQuota","B")[!get.col("MetTarget", "B")])
+
+ttb$data.name <- "Group B: Target not Met / Target Met"
+
+tta
+ttb
+```
+
+#### Remarks
+A t-test confirms the visual assessment that there is no significant difference in the quotas set for those who eventually missed or hit their targets. In other words, it is safe to say that quotas appear to be fair, with no obvious evidence that lower quotas resulted in an easier sales year. The obvious difference between groups is expected, as per the brief (different customer segments).
+
+### Tests for Between Group Differences in Attainment
+```{r lor, opts.label='fig.tile' }
+with(raw.data, fourfold(table(MetTarget, Group)))
+```
+
+#### Remarks
+This is a non-significant result, showing that the ratio of Target not Met : Target Met is not different between the groups.
+
+We also create a Bayesian logistic model to regress the boolean outcome "Met Target" on the Group and KQuota variables, including testing for interactions (different slopes). Note, univariate models (not shown) revealed no evidence of any effect.
+
+```{r lmodels, opts.label='fig.tile'}
+lmod <- MCMClogit(I(MetTarget*1)~KQuota*Group
+                   , data = raw.data
+                   , thin = 10)
+summary(lmod)$quantiles
+densplot(lmod[, 1])
+cat(paste("There is a probability of ", mean(lmod[, 1] >= 0.0)
+          , "that this parameter is greater than zero"))
+densplot(lmod[, 2])
+cat(paste("There is a probability of ", mean(lmod[, 2] >= 0.0)
+          , "that this parameter is greater than zero"))
+densplot(lmod[, 3])
+cat(paste("There is a probability of ", mean(lmod[, 3] >= 0.0)
+          , "that this parameter is greater than zero"))
+densplot(lmod[, 4])
+cat(paste("There is a probability of ", mean(lmod[, 4] >= 0.0)
+          , "that this parameter is greater than zero"))
+```
+
+#### Remarks
+Visual inspection of the MCMC chains and posterior distributions revealed no abnormalities.
+
+Zero is centrally located in the credible intervals for the main intercept and slope. However, while the posterior distributions for the group B intercept and slope parameters also contain zero, the location is nearer to one of the extremes and the likelihood of an effect shouldn't be completely ruled out. The higher intercept with negative slope suggests that group B members with a low quota have the greatest probability of hitting target, but this drops away as for the group B members with higher quotas. The following plot illustrates this result by performing the inverse logit on the MCMC chains with these parameters. The median prediction and interquartile ranges are shown for each instance and redundant points show the true outcomes of MetTarget True/False and the top/bottom of the panel.
+
+```{r pred_plot, opts.label='fig.wide'}
+predict_mcmc_one <- function(x) {
+  lmod[, 1] + lmod[, 2] * raw.data$KQuota[x] +
+  lmod[, 3] * (raw.data$Group[x] == "B") + 
+  lmod[, 4] * raw.data$KQuota[x] * (raw.data$Group[x] == "B")
+}
+preds <- t(sapply(1:nrow(raw.data), predict_mcmc_one))
+preds_quants <- t(apply(exp(preds)/ (1 + exp(preds)), 1, quantile))
+plot(preds_quants[, 3]~raw.data$KQuota, col = myPalContrasts[as.numeric(raw.data$Group)] 
+     , ylim= c(0, 0.8))
+segments(x0 = raw.data$KQuota, y0 = preds_quants[, 2], x1 = raw.data$KQuota, y1 = preds_quants[, 4], col = myPalContrasts[as.numeric(raw.data$Group)])
+legend("bottomright", legend = paste("group", c("A", "B"), "median and IQR"), col = myPalContrasts[1:2], pch = 1, lty = 1)
+points(jitter(0.8*MetTarget, 0.1)~KQuota, cex = 0.5
+       , data=raw.data
+       , col = myPalContrasts[as.numeric(raw.data$Group)]
+       , subset = raw.data$Group == "B")
+```
+
+In light of this finding we modify our earlier advice and suggest that it is feasible that a small number of individuals in group B with the lowest quotas may be working under a less challenging regime than others in their group and in the department as a whole. The evidence is far from conclusive, however.
+
+### Closing Remarks
+This was a fairly detailed analysis for such a simple dataset and has revealed little in the way of interesting insight.
