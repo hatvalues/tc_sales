@@ -37,24 +37,24 @@ MyLatticeTheme <- list(
   , strip.border = list(col = myPal[2])
 )
 MyLatticeStrip = strip.custom(par.strip.text = MyLatticeFont)
-
-# applied to ggplot2
-myGgTheme <- theme(plot.title = element_text(colour = myPalDark[2], size = 10)
-                   , axis.title = element_text(colour = myPalDark[2], size = 10)
-                   , axis.text = element_text(colour = myPalDark[2], size = 10)
-                   , legend.title = element_text(colour = myPalDark[2])
-                   , legend.text = element_text(colour = myPalDark[2]))
-
-myGgThemeSilentX <- theme(plot.title = element_text(colour = myPalDark[2], size = 10)
-                          , axis.title = element_text(colour = myPalDark[2], size = 10)
-                          , axis.text.y = element_text(colour = myPalDark[2], size = 10)
-                          , axis.text.x = element_blank()
-                          , legend.title = element_text(colour = myPalDark[2])
-                          , legend.text = element_text(colour = myPalDark[2]))
-
-myGgThemeSilentY <- theme(plot.title = element_text(colour = myPalDark[2], size = 10)
-                          , axis.title = element_text(colour = myPalDark[2], size = 10)
-                          , axis.text.x = element_text(colour = myPalDark[2], size = 10)
-                          , axis.text.y = element_blank()
-                          , legend.title = element_text(colour = myPalDark[2])
-                          , legend.text = element_text(colour = myPalDark[2]))
+# 
+# # applied to ggplot2
+# myGgTheme <- theme(plot.title = element_text(colour = myPalDark[2], size = 10)
+#                    , axis.title = element_text(colour = myPalDark[2], size = 10)
+#                    , axis.text = element_text(colour = myPalDark[2], size = 10)
+#                    , legend.title = element_text(colour = myPalDark[2])
+#                    , legend.text = element_text(colour = myPalDark[2]))
+# 
+# myGgThemeSilentX <- theme(plot.title = element_text(colour = myPalDark[2], size = 10)
+#                           , axis.title = element_text(colour = myPalDark[2], size = 10)
+#                           , axis.text.y = element_text(colour = myPalDark[2], size = 10)
+#                           , axis.text.x = element_blank()
+#                           , legend.title = element_text(colour = myPalDark[2])
+#                           , legend.text = element_text(colour = myPalDark[2]))
+# 
+# myGgThemeSilentY <- theme(plot.title = element_text(colour = myPalDark[2], size = 10)
+#                           , axis.title = element_text(colour = myPalDark[2], size = 10)
+#                           , axis.text.x = element_text(colour = myPalDark[2], size = 10)
+#                           , axis.text.y = element_blank()
+#                           , legend.title = element_text(colour = myPalDark[2])
+#                           , legend.text = element_text(colour = myPalDark[2]))

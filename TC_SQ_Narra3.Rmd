@@ -1,14 +1,4 @@
 ```{r prologue, include=FALSE}
-library(knitr)
-library(readr)
-library(dplyr)
-library(lattice)
-library(ggplot2)
-library(vcd)
-library(MCMCpack)
-library(MCMCvis)
-library(coda)
-library(gridExtra)
 knitr::opts_chunk$set(warning = FALSE
                       , message = FALSE
                       , echo = FALSE
@@ -21,12 +11,17 @@ knitr::opts_template$set(
   , fig.tile = list(fig.height = 3, fig.width = 3, fig.align='center')
 )
 
-source("TC_Theme.R")
-
 par(mar = c(4,3,3,1))
 ```
 
-```{r Initial_Load}
+```{r initial_load}
+library(readr)
+library(dplyr)
+library(lattice)
+library(vcd)
+library(MCMCpack)
+library(MCMCvis)
+source("TC_Theme.R")
 link <- "TC_SalesQuota.csv"
 raw.data <- read_csv(link) %>%
   transmute(Group = as.factor(Group)
@@ -56,7 +51,7 @@ We will perform basic descriptive statistics on the data set. We will then use B
 ### Descriptive Statistics
 The following listing shows the top 6 rows of the data file followed by a standard summary for the whole sample, and separately by group.
 
-```{r DescrStats, opts.label='fig.wide'}
+```{r descr_stats, opts.label='fig.wide'}
 head(raw.data)
 summary(raw.data)
 summary(raw.data %>% filter(Group == "A"))
@@ -74,7 +69,7 @@ As expected, given the brief, Group B has lower Quota and Sales than Group A. Th
 ### Differences in Performance Within Groups
 For those who made their targets compared to those who didn't, it's useful to know how much their quotas were influential. A boxplot helps to visualise this for the two groups:
 
-```{r boxplot_MetTarget, opts.label='fig.wideX'}
+```{r boxplots, opts.label='fig.wideX'}
 mns <- round(tapply(raw.data$KQuota, list(raw.data$Group, raw.data$MetTarget), mean),2)
 bwplot(KQuota ~ factor(MetTarget) | Group
        , data = raw.data
@@ -102,7 +97,7 @@ bwplot(KQuota ~ factor(MetTarget) | Group
 )
 ```
 
-```{r wlxForQuotaTarget}
+```{r t_tests}
 tta <- t.test(get.col("KQuota","A")[get.col("MetTarget", "A")]
             , get.col("KQuota","A")[!get.col("MetTarget", "A")])
 
@@ -131,9 +126,9 @@ with(raw.data, fourfold(table(MetTarget, Group), color = myPalFourFold))
 The fourfold plot visualises a log odds ratio test. From the overlapping confidence intervals (in the quadrants' circumferences) and the lighter shading, we can see that this is a non-significant result (significant results have bolder shading). We can conclude that over all, the ratio of Target not Met : Target Met is not different between the groups. However, this test does not control for quota as a covariate.
 
 #### Bayesian Logistic Regression
-We create a series Bayesian logistic models to regress the boolean outcome "Met Target" on the Group and KQuota variables, including testing for interactions (different slopes). The priors are set according to the coefficients of a generalized linear model (not shown).
+We create a series Bayesian logistic models to regress the boolean outcome "Met Target" on the Group and KQuota variables, starting with a null (intercept only) model, a model with no interactions and a model including interactions (different slopes for the two groups). The priors are normal distributions around zero. We would like to see if the model parameters converge away from zero and the alternative models have large Bayes Factors.
 
-```{r model3els, opts.label='fig.tile'}
+```{r logistic_models, opts.label='fig.tile'}
 b0 <- rep(0, 4)
 B0 <- rep(0.2, 4)
 model1 <- MCMClogit(I(MetTarget * 1) ~ 1,
@@ -162,7 +157,7 @@ Visual inspection of the MCMC chains and posterior distributions revealed no abn
 
 The Bayes Factor analysis shows that the model that allows for an interaction term is decively favoured over the null and simpler models. The posterior distributions for the parameters are as follows:
 
-```{r model3els_conclusions, opts.label='fig.wide'}
+```{r model_summaries, opts.label='fig.wide'}
 summary(model3)$quantiles[, c(1, 3, 5)]
 MCMCtrace(model3, pdf=FALSE, iter=10000
           , col_den = myPalContrasts[9]
@@ -171,22 +166,6 @@ MCMCtrace(model3, pdf=FALSE, iter=10000
           , lty_pr = 2
           , priors = t(replicate(10000, rnorm(4, b0, B0))))
 MCMCplot(model3, ref_ovl = TRUE)
-# densplot(model3[, 1])
-# abline(v=0, lty=2, lwd=0.5, col = myPalContrasts[4])
-# cat(paste(mean(model3[, 1] >= 0.0)
-#           , "of this distribution is greater than zero"))
-# densplot(model3[, 2])
-# abline(v=0, lty=2, lwd=0.5, col = myPalContrasts[4])
-# cat(paste(mean(model3[, 2] >= 0.0)
-#           , "of this distribution is greater than zero"))
-# densplot(model3[, 3])
-# abline(v=0, lty=2, lwd=0.5, col = myPalContrasts[4])
-# cat(paste(mean(model3[, 3] >= 0.0)
-#           , "of this distribution is greater than zero"))
-# densplot(model3[, 4])
-# abline(v=0, lty=2, lwd=0.5, col = myPalContrasts[4])
-# cat(paste(mean(model3[, 4] >= 0.0)
-#           , "of this distribution is greater than zero"))
 ```
 
 From these results, we can see that the intercept and main KQuota slope parameter are trivial, or close to zero. For the posterior distributions of the group B intercept and slope parameters the result is a little more nuanced, with most of their density falling above or below zero. We can interpret this informally as an indication of how likely it is that group B members with a low quota have a greater probability of hitting target - the negative slope indicating that increasing quotas decreases this probability. We might say that the lowest quotas are not as challenging, but only for group B members. The following plot illustrates this result by performing the inverse logit on each of the parameter sets in the MCMC. The median prediction, inter-quartile and and 95% credible intervals are shown for each instance. Redundant marks "T" and "F" show the true outcomes of MetTarget True/False and the top/bottom of the panel for the group B members.
@@ -210,7 +189,8 @@ segments(x0 = raw.data$KQuota, y0 = preds_quants[, 1], x1 = raw.data$KQuota, y1 
 segments(x0 = raw.data$KQuota, y0 = preds_quants[, 2], x1 = raw.data$KQuota, y1 = preds_quants[, 4]
          , col = myPalContrasts[as.numeric(raw.data$Group)]
          , lwd = 1)
-legend("topright", legend = paste("group", c("A", "B"), " - median and HDI"), col = myPalContrasts[1:2], pch = 20, lty = 1, cex=0.75)
+legend("topright", legend = paste("group", c("A", "B"), " - median and HDI")
+       , col = myPalContrasts[1:2], pch = 20, lty = 1, cex=0.75)
 abline(0.5, 0, lty=2, lwd=0.5)
 points(MetTarget~KQuota, cex = 0.4
        , data=raw.data, pch = as.character(raw.data$MetTarget)
@@ -222,3 +202,28 @@ In light of this finding we suggest that it is plausible that individuals in gro
 
 ### Closing Remarks
 This was a fairly detailed analysis for such a simple dataset. Using Bayesian statistics allowed us to draw conclusions about the closed population directly. This is in contrast with classical (frequentist) statistics that are typically used to make inferences from a sample to a larger population.
+
+## Appendix: Code
+```{r initial_load, echo=TRUE, eval=FALSE}
+```
+
+```{r descr_stats, echo=TRUE, eval=FALSE}
+```
+
+```{r boxplots, echo=TRUE, eval=FALSE}
+```
+
+```{r t_tests, echo=TRUE, eval=FALSE}
+```
+
+```{r lor, echo=TRUE, eval=FALSE}
+```
+
+```{r logistic_models, echo=TRUE, eval=FALSE}
+```
+
+```{r model_summaries, echo=TRUE, eval=FALSE}
+```
+
+```{r pred_plot, echo=TRUE, eval=FALSE}
+```
