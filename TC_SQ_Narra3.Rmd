@@ -38,7 +38,7 @@ set.seed(12321)
 # Statistical Analysis of Sales Data
 
 ##### Julian Hatwell
-##### `r format(Sys.time(), "%b %Y")`
+##### `r format(as.Date("2016-08-04"), "%b %Y")`
 
 ## Introduction
 The client's sales department is organised into groups A and B. Members of Group B are set much lower quotas (sales targets) on average, reflecting a difference in difficulty to sell to group B customers.
