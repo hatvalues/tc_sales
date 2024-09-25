@@ -46,6 +46,9 @@ The client's sales department is organised into groups A and B. Members of Group
 ## Business Problem
 Is there any difference performance between the two groups? What (if any) anomalies are present? Make recommendations based on the findings.
 
+## Executive Summary
+Members of Group B where much more sensitive to quota size, with diminishing chances of meeting their quota as quota increased over a very small range. This reflected the additional challenge of selling to this customer segment.
+
 ## Methodology
 We will present the descriptive statistics. We will then analyse groups using a Bayesian statistical test. Bayesian methods are preferred for this analysis, because the data is a complete census (the entire sales department). The interpretation is more intuitive and we do not intend to make inferences about a larger population. Furthermore, checking assumptions and diagnostics for packaged Bayesian models is much less time consuming.
 
@@ -69,10 +72,10 @@ xyplot(KSales~KQuota, data=raw.data
 ```
 
 #### Remarks
-As expected, given the brief, Group B has lower Quota and Sales than Group A. There appears to be a very strong correlation between Quota and Sales. This correlation suggests that whoever is setting the quota (targets) at the start of the sales year has an uncanny grasp of the annual sales process.
+As expected, given the brief, Group B has lower Quota and Sales than Group A. There appears to be a very strong correlation between Quota and Sales. We asked the client to consider what this correlation implies. Does the person setting the quota (targets) at the start of the sales year have an uncanny grasp of the annual sales process? Are sales team members working up to the quotas but taking their foot off the gas when they know they've qualified for a bonus? If so, could a stretch target change the outcomes? These are causal questions that we could not possibly answer with this simple data set but it led to some interesting follow up discussions.
 
 ### Differences in Performance Within Groups
-We will consider the two groups separately, given the known difference *between* groups already descibed.
+We will consider the two groups separately, given the known difference *between* groups already described.
 
 For those who made their targets compared to those who didn't, it's useful to know how much their quotas were influential. A boxplot helps to visualise this for the two groups:
 
@@ -140,7 +143,7 @@ plot(ttb)
 The bottom two charts show the posterior distribution of the mean difference (Group B: Met Target vs Group B: Target not Met). We can see the posterior is centred at `r round(ttb$stats["mu_diff", "median"], 2)` which aligns with the above box plot. The effect size (relative to the variance) is considered medium at `r round(ttb$stats["eff_size", "median"], 2)`. Zero is inside the credible interval, but there is a $\approx 95\%$ that the Met Target sub group have a lower median target than the Target not Met sub group.
 
 #### Remarks
-The obvious difference *between* groups is expected, as per the client brief (different customer segments), so the groups were considered separately here. A Bayesian t-test confirms the visual assessment that there is no significant difference in the median quotas set for the sub-groups in Group A (those who met their target vs those who missed it). One the other hand, we have evidence to suggest that this is not the case for Group B. Those who met their targets (taken as a group) may have had more slightly more achievable targets than those who did not. Note that the evidence is borderline credible.
+The obvious difference *between* groups is expected, as per the client brief (different customer segments), so the groups were considered separately here. A Bayesian t-test confirms the visual assessment that there is no significant difference in the median quotas set for the sub-groups in Group A (those who met their target vs those who missed it). One the other hand, we have evidence to suggest that this is not the case for Group B. Those who met their targets (taken as a group) may have had slightly more achievable targets than those who did not. Note that the evidence is borderline credible.
 
 A standard t-test (not shown) produces a very similar result but the difference in Group B would be reported as non-significant based on the p-values (p = 0.056). Again, we might consider this a borderline result but the Bayesian interpretation is more intuitive.
 
